@@ -30,7 +30,7 @@ void setup() {
   float ads_InputRange = 6.144f;
   ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
 
-  Serial.println("ADS Voltage \tPressure");
+  Serial.println("ADS Voltage (V) \tPressure (cm3 H2O)");
 }
 
 void loop() {
@@ -43,8 +43,9 @@ void loop() {
 
   // Printing voltage and pressure
   Serial.print(ads_Voltage_ch0);
-  Serial.print("\t\t");
-  Serial.print(map(ads_Voltage_ch0, 2.5, 5, 0, 5));
+  Serial.print("\t\t");  
+  // When working with 5V supply, the sensor gives 2.5 V for 0 cm3 H2O and 5 V for 5 cm3 H2O
+  Serial.print(map(ads_Voltage_ch0, 2.5 * 3.3/5, 3.3, 0, 5)); // Considering Voltage Divider 3.3/5
 
   Serial.println();
 

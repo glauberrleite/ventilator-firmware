@@ -45,7 +45,7 @@ void loop() {
   Serial.print(ads_Voltage_ch0);
   Serial.print("\t\t");  
   // When working with 5V supply, the sensor gives 2.5 V for 0 cm3 H2O and 5 V for 5 cm3 H2O
-  Serial.print(map(ads_Voltage_ch0, 2.5 * 3.3/5, 3.3, 0, 5)); // Considering Voltage Divider 3.3/5
+  Serial.print(map(ads_Voltage_ch0, 2.5, 5, 0, 5)); // Considering Voltage Divider 3.3/5
 
   Serial.println();
 

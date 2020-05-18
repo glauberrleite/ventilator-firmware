@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
 
-#define   ADC_16BIT_MAX         65536
+#define   ADC_16BIT_MAX     65536
 
 class Sensors {
     protected:

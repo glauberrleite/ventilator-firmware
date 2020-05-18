@@ -5,20 +5,17 @@
  *  @author vangasse
  */
 
+#ifndef ARDUINO_H
+#define ARDUINO_H
 #include <Arduino.h>
-#include "sensors.h"
+#endif
 
-#define   PWM_FREQ              25000
-#define   PWM_RES               8
-#define   LEFT_PROP_VALVE_PIN   5
-#define   RIGHT_PROP_VALVE_PIN  18
-#define   LEFT_PROP_VALVE_CH    0
-#define   RIGHT_PROP_VALVE_CH   1
-#define   LEFT_SEC_VALVE_PIN    33
-#define   RIGHT_SEC_VALVE_PIN   25
+#include "sensors.h"
+#include "valves.h"
 
 int cnt = 0;
 Sensors sensors;
+Valves valves;
 
 // Custom functions
 
@@ -59,23 +56,11 @@ String getValue(String data, char separator, int index)
 }
 
 // Main setup and loop
-
 void setup() {
   Serial.begin(9600);
 
   sensors = Sensors();
-
-  // Proportional Valves setup
-  ledcSetup(LEFT_PROP_VALVE_CH, PWM_FREQ, PWM_RES);
-  ledcSetup(RIGHT_PROP_VALVE_CH, PWM_FREQ, PWM_RES);
-    
-  ledcAttachPin(LEFT_PROP_VALVE_PIN, LEFT_PROP_VALVE_CH);
-  ledcAttachPin(RIGHT_PROP_VALVE_PIN, RIGHT_PROP_VALVE_CH);
-
-  // Security Valve configs
-  pinMode(LEFT_SEC_VALVE_PIN, OUTPUT);
-  pinMode(RIGHT_SEC_VALVE_PIN, OUTPUT);
-
+  valves = Valves();
 }
 
 void loop() {
@@ -106,16 +91,16 @@ void loop() {
     String part01 = getValue(received, ',', 0);
     String part02 = getValue(received, ',', 1);
 
-    int value = part02.toInt();
+    float value = part02.toFloat();
 
-    if (part01.equals("LSV")) {
-      digitalWrite(LEFT_SEC_VALVE_PIN, value);
-    } else if (part01.equals("RSV")) {
-      digitalWrite(RIGHT_SEC_VALVE_PIN, value);
-    } else if (part01.equals("LPV")) {
-      ledcWrite(LEFT_PROP_VALVE_CH, value);
+    if (part01.equals("AUTO")) {
+      valves.setAUTO_SEC_VALVE(bool(value));
+    } else if (part01.equals("MANUAL")) {
+      valves.setMANUAL_SEC_VALVE(bool(value));
+    } else if (part01.equals("INS")) {
+      valves.setINS_VALVE(value);
     } else {
-      ledcWrite(RIGHT_PROP_VALVE_CH, value);
+      valves.setEXP_VALVE(value);
     }
 
     Serial.print(part01);

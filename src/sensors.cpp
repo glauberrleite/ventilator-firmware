@@ -1,6 +1,72 @@
-#include <sensors.h>
+#include "sensors.h"
 
-float getFlowAWM720P(float v)
+Sensors::Sensors()
+{
+  // I2C addresses for Analog-Digital Convertes
+  this->ads1 = Adafruit_ADS1115(0x48);
+  this->ads2 = Adafruit_ADS1115(0x49);
+  
+  // ADS1115 Analog Digital Converter configs
+  this->ads1.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
+  this->ads2.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
+  //  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
+  //  ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
+  //  ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
+  //  ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.25mV   0.015625mV
+  //  ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
+
+  this->ads1.begin();
+  this->ads2.begin();
+
+  float ads_InputRange = 6.144f;
+  this->ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
+
+  // Initializing attributes  
+  this->fl_pac_ins = 0;
+  this->fl_pac_exp = 0;
+  this->fl_int = 0;
+  this->pres_pac = 0;
+  this->pres_int = 0;
+
+}
+
+void Sensors::update()
+{
+    int16_t ads1_ch0 = 0;
+    int16_t ads2_ch0 = 0;
+    int16_t ads2_ch1 = 0;
+    int16_t ads2_ch2 = 0;
+    int16_t ads2_ch3 = 0;
+
+    // Getting sensors data
+    float ads1_Voltage_ch0 = 0.0f;
+    float ads2_Voltage_ch0 = 0.0f;
+    float ads2_Voltage_ch1 = 0.0f;
+    float ads2_Voltage_ch2 = 0.0f;
+    float ads2_Voltage_ch3 = 0.0f;
+
+    // Reading and converting ADC Raw data to Voltage
+    ads1_ch0 = this->ads1.readADC_SingleEnded(0);
+    ads2_ch0 = this->ads2.readADC_SingleEnded(0);
+    ads2_ch1 = this->ads2.readADC_SingleEnded(1);
+    ads2_ch2 = this->ads2.readADC_SingleEnded(2);
+    ads2_ch3 = this->ads2.readADC_SingleEnded(3);
+    
+    ads1_Voltage_ch0 = ads1_ch0 * ads_bit_Voltage;
+    ads2_Voltage_ch0 = ads2_ch0 * ads_bit_Voltage;
+    ads2_Voltage_ch1 = ads2_ch1 * ads_bit_Voltage;
+    ads2_Voltage_ch2 = ads2_ch2 * ads_bit_Voltage;
+    ads2_Voltage_ch3 = ads2_ch3 * ads_bit_Voltage;
+
+    
+    this->fl_pac_ins = getPressureASDX001PDAA5(ads2_Voltage_ch0);
+    this->fl_pac_exp = getPressureASDX001PDAA5(ads2_Voltage_ch1);
+    this->fl_int = getFlowAWM720P(ads1_Voltage_ch0);
+    this->pres_pac = getPressureASDX005NDAA5(ads2_Voltage_ch2);
+    this->pres_int = getPressureASDX005NDAA5(ads2_Voltage_ch3);
+}
+
+float Sensors::getFlowAWM720P(float v)
 {
   v = v < 1.0 ? 1.0 : v;
   v = v > 5.0 ? 5.0 : v;
@@ -42,7 +108,7 @@ float getFlowAWM720P(float v)
   return flow;
 }
 
-float getPressureASDX(float v, float p_min, float p_max)
+float Sensors::getPressureASDX(float v, float p_min, float p_max)
 {  
   v = v < 0.5 ? 0.5 : v;
   v = v > 4.5 ? 4.5 : v;
@@ -50,12 +116,37 @@ float getPressureASDX(float v, float p_min, float p_max)
   return ((v - 0.5)*(p_max - p_min)/4) + p_min;
 }
 
-float getPressureASDX001PDAA5(float v)
+float Sensors::getPressureASDX001PDAA5(float v)
 {
-  return getPressureASDX(v, -1, 1);
+  return this->getPressureASDX(v, -1, 1);
 }
 
-float getPressureASDX005NDAA5(float v)
+float Sensors::getPressureASDX005NDAA5(float v)
 {
-  return getPressureASDX(v, -5, 5);
+  return this->getPressureASDX(v, -5, 5);
+}
+
+float Sensors::getFL_PAC_INS()
+{
+  return this->fl_pac_ins;
+}
+
+float Sensors::getFL_PAC_EXP()
+{
+  return this->fl_pac_exp;
+}
+
+float Sensors::getFL_INT()
+{
+  return this->fl_int;
+}
+
+float Sensors::getPRES_PAC()
+{
+  return this->pres_pac;
+}
+
+float Sensors::getPRES_INT()
+{
+  return this->pres_int;
 }

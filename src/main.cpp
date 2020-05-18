@@ -6,11 +6,7 @@
  */
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_ADS1015.h>
-#include <sensors.h>
-
-#define   ADC_16BIT_MAX         65536
+#include "sensors.h"
 
 #define   PWM_FREQ              25000
 #define   PWM_RES               8
@@ -21,12 +17,8 @@
 #define   LEFT_SEC_VALVE_PIN    33
 #define   RIGHT_SEC_VALVE_PIN   25
 
-Adafruit_ADS1115 ads1(0x48);
-Adafruit_ADS1115 ads2(0x49);
-
-float ads_bit_Voltage;
-
 int cnt = 0;
+Sensors sensors;
 
 // Custom functions
 
@@ -71,20 +63,7 @@ String getValue(String data, char separator, int index)
 void setup() {
   Serial.begin(9600);
 
-  // ADS1115 Analog Digital Converter configs
-  ads1.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  ads2.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  //  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
-  //  ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
-  //  ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
-  //  ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.25mV   0.015625mV
-  //  ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
-
-  ads1.begin();
-  ads2.begin();
-
-  float ads_InputRange = 6.144f;
-  ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
+  sensors = Sensors();
 
   // Proportional Valves setup
   ledcSetup(LEFT_PROP_VALVE_CH, PWM_FREQ, PWM_RES);
@@ -101,56 +80,19 @@ void setup() {
 
 void loop() {
 
-  if (cnt > 50) {
+  if (cnt > 100) {
     cnt = 0; 
+    sensors.update();
 
-    int16_t ads_ch0 = 0;
-    int16_t ads_ch1 = 0;
-    int16_t ads_ch2 = 0;
-    int16_t ads_ch3 = 0;
-    int16_t ads_ch4 = 0;
-
-    // Getting sensors data
-    float ads_Voltage_ch0 = 0.0f;
-    float ads_Voltage_ch1 = 0.0f;
-    float ads_Voltage_ch2 = 0.0f;
-    float ads_Voltage_ch3 = 0.0f;
-    float ads_Voltage_ch4 = 0.0f;
-
-    // Reading and converting ADC Raw data to Voltage
-    ads_ch0 = ads1.readADC_SingleEnded(0);
-    ads_ch1 = ads2.readADC_SingleEnded(0);
-    ads_ch2 = ads2.readADC_SingleEnded(1);
-    ads_ch3 = ads2.readADC_SingleEnded(2);
-    ads_ch4 = ads2.readADC_SingleEnded(3);
-    
-    ads_Voltage_ch0 = ads_ch0 * ads_bit_Voltage;
-    ads_Voltage_ch1 = ads_ch1 * ads_bit_Voltage;
-    ads_Voltage_ch2 = ads_ch2 * ads_bit_Voltage;
-    ads_Voltage_ch3 = ads_ch3 * ads_bit_Voltage;
-    ads_Voltage_ch4 = ads_ch4 * ads_bit_Voltage;
-
-    // Printing voltage and pressure
-    Serial.print(ads_Voltage_ch0);
-    Serial.print("-->");  
-    Serial.print(getFlowAWM720P(ads_Voltage_ch0));
-    // When working with 5V supply, the sensor gives 2.5 V for 0 cm3 H2O and 5 V for 5 cm3 H2O
+    Serial.print(sensors.getFL_INT());
     Serial.print("\t\t");
-    Serial.print(ads_Voltage_ch1);
-    Serial.print("-->");  
-    Serial.print(getPressureASDX001PDAA5(ads_Voltage_ch1));
+    Serial.print(sensors.getFL_PAC_INS());
     Serial.print("\t\t");
-    Serial.print(ads_Voltage_ch2);
-    Serial.print("-->");  
-    Serial.print(getPressureASDX001PDAA5(ads_Voltage_ch2));
+    Serial.print(sensors.getFL_PAC_EXP());
     Serial.print("\t\t");
-    Serial.print(ads_Voltage_ch3);
-    Serial.print("-->");  
-    Serial.print(getPressureASDX005NDAA5(ads_Voltage_ch3));
+    Serial.print(sensors.getPRES_PAC());
     Serial.print("\t\t");
-    Serial.print(ads_Voltage_ch4);
-    Serial.print("-->");  
-    Serial.print(getPressureASDX005NDAA5(ads_Voltage_ch4));
+    Serial.print(sensors.getPRES_INT());
 
     Serial.println();
   }

@@ -27,7 +27,8 @@ void Valves::setINS_VALVE(float level)
 
 void Valves::setEXP_VALVE(float level)
 {
-    int value = int((level/100) * 255);
+    level = -(level - 100);
+    int value = int((level/100) * 255);    
     ledcWrite(EXP_PROP_VALVE_CH, value);
 }
 

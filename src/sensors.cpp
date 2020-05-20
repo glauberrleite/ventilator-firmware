@@ -150,3 +150,24 @@ float Sensors::getPRES_INT()
 {
   return this->pres_int;
 }
+
+
+float Sensors::getFL_PAC_INS_cm3H2O()
+{
+  return this->fl_pac_ins * 70.307;
+}
+
+float Sensors::getFL_PAC_EXP_cm3H2O()
+{
+  return this->fl_pac_exp * 70.307;
+}
+
+float Sensors::getPRES_PAC_cm3H2O()
+{
+  return this->pres_pac * 70.307;
+}
+
+float Sensors::getPRES_INT_cm3H2O()
+{
+  return this->pres_int * 70.307;
+}

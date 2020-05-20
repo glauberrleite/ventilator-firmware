@@ -26,6 +26,11 @@ class Sensors {
         float getFL_INT();
         float getPRES_PAC();
         float getPRES_INT();
+        
+        float getFL_PAC_INS_cm3H2O();
+        float getFL_PAC_EXP_cm3H2O();
+        float getPRES_PAC_cm3H2O();
+        float getPRES_INT_cm3H2O();
 
     private:
         float getFlowAWM720P(float v);

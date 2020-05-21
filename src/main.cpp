@@ -13,13 +13,12 @@
 #include "sensors.h"
 #include "valves.h"
 
-int cnt = 1;
 Sensors sensors;
 Valves valves;
 
 // Setting state times, in milliseconds
-#define PIP_TO_PLATEAU      3000
-#define PLATEAU_TO_PEEP     3000
+#define PIP_TO_PLATEAU      2000
+#define PLATEAU_TO_PEEP     4000
 #define PEEP_TO_PIP         3000
 
 typedef enum {
@@ -122,28 +121,26 @@ void setup() {
 
 void loop() {
 
-  if (cnt > 100) {
-    cnt = 0; 
-    sensors.update();
+  sensors.update();
 
-    Serial.print(current_state);
-    Serial.print("\t\t");
-    Serial.print(sensors.getFL_INT());
-    Serial.print("\t\t");
-    Serial.print(sensors.getFL_PAC_INS());
-    Serial.print("\t\t");
-    Serial.print(sensors.getFL_PAC_EXP());
-    Serial.print("\t\t");
-    Serial.print(sensors.getPRES_PAC());
-    Serial.print("\t\t");
-    Serial.print(sensors.getPRES_INT());
+  Serial.print(current_state);
+  Serial.print("\t");
+  Serial.print(sensors.getFL_INT());
+  Serial.print("\t");
+  Serial.print(sensors.getFL_PAC_INS_cm3H2O());
+  Serial.print("\t");
+  Serial.print(sensors.getFL_PAC_EXP_cm3H2O());
+  Serial.print("\t");
+  Serial.print(sensors.getPRES_PAC_cm3H2O());
+  Serial.print("\t");
+  Serial.print(sensors.getPRES_INT_cm3H2O());
 
-    Serial.println();
-  }
+  Serial.println();
 
+  // State machine
   switch (current_state) {
     case PIP:
-      valves.setINS_VALVE(100);
+      valves.setINS_VALVE(75);
       valves.setEXP_VALVE(0);
       break;
     case PLATEAU:
@@ -157,6 +154,7 @@ void loop() {
     default: break;
   }
   
+  // Receiving commands via serial
   if (Serial.available() > 0) {
     // Lê toda string recebida
     String received = readStringSerial();
@@ -169,6 +167,8 @@ void loop() {
     if (part01.equals("START")) {
       current_state = PIP;
       timerAlarmEnable(timer);
+    } else if (part01.equals("PRINT")) {
+      
     } else if (part01.equals("AUTO")) {
       valves.setAUTO_SEC_VALVE(bool(value));
     } else if (part01.equals("MANUAL")) {
@@ -178,14 +178,7 @@ void loop() {
     } else {
       valves.setEXP_VALVE(value);
     }
-
-    Serial.print("Received: ");
-    Serial.print(part01);
-    Serial.print('\t');
-    Serial.println(part02);
   
   }
-
-  cnt++;
   delay(10);
 }

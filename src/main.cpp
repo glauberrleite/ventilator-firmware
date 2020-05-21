@@ -34,6 +34,14 @@ volatile int timer_counter;
 hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
+// Print debug variables
+bool print_state;
+bool print_fl_int;
+bool print_fl_pac_ins;
+bool print_fl_pac_exp;
+bool print_pres_pac;
+bool print_pres_int;
+
 // Custom functions
 
 // Timer callback
@@ -123,17 +131,34 @@ void loop() {
 
   sensors.update();
 
-  Serial.print(current_state);
-  Serial.print("\t");
-  Serial.print(sensors.getFL_INT());
-  Serial.print("\t");
-  Serial.print(sensors.getFL_PAC_INS_cm3H2O());
-  Serial.print("\t");
-  Serial.print(sensors.getFL_PAC_EXP_cm3H2O());
-  Serial.print("\t");
-  Serial.print(sensors.getPRES_PAC_cm3H2O());
-  Serial.print("\t");
-  Serial.print(sensors.getPRES_INT_cm3H2O());
+  if (print_state) {
+    Serial.print(current_state);
+    Serial.print("\t");
+  }
+
+  if (print_fl_int) {
+    Serial.print(sensors.getFL_INT());
+    Serial.print("\t");
+  }
+  
+  if (print_fl_pac_ins) {
+    Serial.print(sensors.getFL_PAC_INS_cm3H2O());
+    Serial.print("\t");
+  }
+  
+  if (print_fl_pac_exp) {
+    Serial.print(sensors.getFL_PAC_EXP_cm3H2O());
+    Serial.print("\t");
+  }
+  
+  if (print_pres_pac) {
+    Serial.print(sensors.getPRES_PAC_cm3H2O());
+    Serial.print("\t");
+  }
+  
+  if (print_pres_int) {
+    Serial.print(sensors.getPRES_INT_cm3H2O());
+  }
 
   Serial.println();
 
@@ -168,7 +193,12 @@ void loop() {
       current_state = PIP;
       timerAlarmEnable(timer);
     } else if (part01.equals("PRINT")) {
-      
+      print_state = bool(getValue(part02, ';', 0).toFloat());
+      print_fl_int = bool(getValue(part02, ';', 1).toFloat());
+      print_fl_pac_ins = bool(getValue(part02, ';', 2).toFloat());
+      print_fl_pac_exp = bool(getValue(part02, ';', 3).toFloat());
+      print_pres_pac = bool(getValue(part02, ';', 4).toFloat());
+      print_pres_int = bool(getValue(part02, ';', 5).toFloat());
     } else if (part01.equals("AUTO")) {
       valves.setAUTO_SEC_VALVE(bool(value));
     } else if (part01.equals("MANUAL")) {

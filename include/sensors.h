@@ -6,6 +6,7 @@
 
 class Sensors {
     protected:
+        //Sensors variables
         float fl_pac_ins;
         float fl_pac_exp;
         float fl_int;
@@ -19,22 +20,27 @@ class Sensors {
     public:
         Sensors();
 
-        void update();
+        void update();//Updates all sensors variables to all current sensor readings
 
-        float getFL_PAC_INS();
-        float getFL_PAC_EXP();
-        float getFL_INT();
-        float getPRES_PAC();
-        float getPRES_INT();
+        float getFL_INT();//Returns last updated value from FLow sensor in ________(measure)
         
+        //Functions below returns latest updated values from Pressure sensors in PSI
+        float getFL_PAC_INS_PSI();
+        float getFL_PAC_EXP_PSI();
+        float getPRES_PAC_PSI();
+        float getPRES_INT_PSI();
+        
+        //Functions below returns latest updated values from Pressure sensors in cm3H2O
         float getFL_PAC_INS_cm3H2O();
         float getFL_PAC_EXP_cm3H2O();
         float getPRES_PAC_cm3H2O();
         float getPRES_INT_cm3H2O();
 
     private:
+        //Functions below are called in update() with the readings from corresponding ports set as parameters
+        //Equations used in this implementation were educed from datasheet info
         float getFlowAWM720P(float v);
-        float getPressureASDX(float v, float p_min, float p_max);
-        float getPressureASDX001PDAA5(float v);
-        float getPressureASDX005NDAA5(float v);
+        float getPressureASDX(float v, float p_min, float p_max);//minimum and maximum pressures are determined for each sensor by datasheet
+        float getPressureASDX001PDAA5(float v);//datasheet determines [-1,1] PSI reading range
+        float getPressureASDX005NDAA5(float v);//datasheet determines [-5,5] PSI reading range
 };

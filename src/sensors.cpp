@@ -68,13 +68,15 @@ void Sensors::update()
 
 float Sensors::getFlowAWM720P(float v)
 {
+  // Readings from AWM720P varies from 1V to 5V
   v = v < 1.0 ? 1.0 : v;
   v = v > 5.0 ? 5.0 : v;
 
   float flow = 0;
 
+  // Flow is determined by a piece wise function of Tension described below
+  // Polynomial coefficients in our interpolation method are local coefficients for each interval
   if (v >= 1 && v < 2.99) {
-    // Polynomial coefficients in our interpolation method are local coefficients for each interval
     float rel = (v - 1);
 
     flow = 1.9385 * pow(rel, 3) - 3.0982 * pow(rel, 2) + 11.0514 * rel;
@@ -126,12 +128,12 @@ float Sensors::getPressureASDX005NDAA5(float v)
   return this->getPressureASDX(v, -5, 5);
 }
 
-float Sensors::getFL_PAC_INS()
+float Sensors::getFL_PAC_INS_PSI()
 {
   return this->fl_pac_ins;
 }
 
-float Sensors::getFL_PAC_EXP()
+float Sensors::getFL_PAC_EXP_PSI()
 {
   return this->fl_pac_exp;
 }
@@ -141,12 +143,12 @@ float Sensors::getFL_INT()
   return this->fl_int;
 }
 
-float Sensors::getPRES_PAC()
+float Sensors::getPRES_PAC_PSI()
 {
   return this->pres_pac;
 }
 
-float Sensors::getPRES_INT()
+float Sensors::getPRES_INT_PSI()
 {
   return this->pres_int;
 }

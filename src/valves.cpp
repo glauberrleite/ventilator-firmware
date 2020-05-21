@@ -21,14 +21,14 @@ Valves::Valves()
 
 void Valves::setINS_VALVE(float level)
 {
-    int value = int((level/100) * 255);
+    int value = int((level/100) * 255); // [0,100] signal convertion to [0,255] pwm
     ledcWrite(INS_PROP_VALVE_CH, value);
 }
 
 void Valves::setEXP_VALVE(float level)
 {
-    level = -(level - 100);
-    int value = int((level/100) * 255);    
+    level = -(level - 100); // Normally openned valve requires treatment to behave as expected in system's agreement, especified in valves.h 
+    int value = int((level/100) * 255); // [0,100] signal convertion to [0,255] pwm    
     ledcWrite(EXP_PROP_VALVE_CH, value);
 }
 

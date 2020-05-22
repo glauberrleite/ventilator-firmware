@@ -17,9 +17,9 @@ Sensors sensors;
 Valves valves;
 
 // Setting state times, in milliseconds
-#define PIP_TO_PLATEAU      2000
-#define PLATEAU_TO_PEEP     4000
-#define PEEP_TO_PIP         3000
+volatile int PIP_TO_PLATEAU = 1000;
+volatile int PLATEAU_TO_PEEP = 1000;
+volatile int PEEP_TO_PIP = 2000;
 
 typedef enum {
     IDLE,
@@ -42,6 +42,8 @@ bool print_fl_pac_exp;
 bool print_pres_pac;
 bool print_pres_int;
 
+float VALVE_INS = 0;
+
 // Custom functions
 
 // Timer callback
@@ -51,8 +53,16 @@ void IRAM_ATTR onTimer() {
     if (timer_counter >= PIP_TO_PLATEAU) {
       current_state = PLATEAU;
       timer_counter = 0;
+      VALVE_INS = 0;
     } else {
       timer_counter++;
+      
+      // Soft Starter
+      if (timer_counter < (PIP_TO_PLATEAU/2)) {
+        VALVE_INS = 2 * 100 * timer_counter * 0.001 / timer_counter;
+      } else {
+        VALVE_INS = 100;
+      }
     }
   } else if (current_state == PLATEAU) {
     if (timer_counter >= PLATEAU_TO_PEEP) {
@@ -160,12 +170,13 @@ void loop() {
     Serial.print(sensors.getPRES_INT_cm3H2O());
   }
 
-  Serial.println();
+  if (print_state || print_fl_int || print_fl_pac_ins || print_fl_pac_exp || print_pres_pac || print_pres_int)
+    Serial.println();
 
   // State machine
   switch (current_state) {
     case PIP:
-      valves.setINS_VALVE(75);
+      valves.setINS_VALVE(VALVE_INS);
       valves.setEXP_VALVE(0);
       break;
     case PLATEAU:
@@ -205,6 +216,24 @@ void loop() {
       valves.setMANUAL_SEC_VALVE(bool(value));
     } else if (part01.equals("INS")) {
       valves.setINS_VALVE(value);
+    } else if (part01.equals("TEST")) {
+      for (int i = 69; i <= 100; i++) {
+        Serial.print(i);
+        valves.setINS_VALVE(i);
+        Serial.print('\t');
+        delay(1000);
+        sensors.update();
+        Serial.print(sensors.getFL_INT());
+        Serial.println();
+      }
+    } else if (part01.equals("PIP")) {
+        PIP_TO_PLATEAU = value;
+    } else if (part01.equals("PLATEAU")) {
+        PLATEAU_TO_PEEP = value;
+    } else if (part01.equals("PEEP")) {
+        PEEP_TO_PIP = value;
+    } else if (part01.equals("VALVE_INS")) {
+        VALVE_INS = value;
     } else {
       valves.setEXP_VALVE(value);
     }

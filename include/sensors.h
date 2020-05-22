@@ -22,8 +22,8 @@ class Sensors {
 
         void update();//Updates all sensors variables to all current sensor readings
 
-        float getFL_INT();//Returns last updated value from FLow sensor in ________(measure)
-        
+        float getFL_INT();//Returns last updated value from FLow sensor in SLPM 
+                
         //Functions below returns latest updated values from Pressure sensors in PSI
         float getFL_PAC_INS_PSI();
         float getFL_PAC_EXP_PSI();

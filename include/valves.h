@@ -1,5 +1,5 @@
 #define   PWM_FREQ              25000
-#define   PWM_RES               8
+#define   PWM_RES               10
 #define   INS_PROP_VALVE_PIN    5
 #define   EXP_PROP_VALVE_PIN    18
 #define   INS_PROP_VALVE_CH     0

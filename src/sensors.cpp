@@ -116,7 +116,7 @@ float Sensors::getPressureASDX(float v, float p_min, float p_max)
   v = v > 4.5 ? 4.5 : v;
 
   return ((v - 0.5)*(p_max - p_min)/4) + p_min;
-}
+} 
 
 float Sensors::getPressureASDX001PDAA5(float v)
 {
@@ -125,7 +125,8 @@ float Sensors::getPressureASDX001PDAA5(float v)
 
 float Sensors::getPressureASDX005NDAA5(float v)
 {
-  return this->getPressureASDX(v, -5, 5);
+  // ND series return pressure in in h2o, we need to convert to psi
+  return this->getPressureASDX(v, -5, 5) * 0.0360912;
 }
 
 float Sensors::getFL_PAC_INS_PSI()
@@ -152,7 +153,6 @@ float Sensors::getPRES_INT_PSI()
 {
   return this->pres_int;
 }
-
 
 float Sensors::getFL_PAC_INS_cm3H2O()
 {

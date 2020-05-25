@@ -42,7 +42,10 @@ bool print_fl_pac_exp;
 bool print_pres_pac;
 bool print_pres_int;
 
-float VALVE_INS = 0;
+bool print_valve_in;
+
+volatile float SOFT_INS = 0;
+volatile float VALVE_INS = 100;
 
 // Custom functions
 
@@ -53,15 +56,17 @@ void IRAM_ATTR onTimer() {
     if (timer_counter >= PIP_TO_PLATEAU) {
       current_state = PLATEAU;
       timer_counter = 0;
-      VALVE_INS = 0;
+      SOFT_INS = 0;
+      
     } else {
-      timer_counter++;
+      timer_counter++;      
       
       // Soft Starter
-      if (timer_counter < (PIP_TO_PLATEAU/2)) {
-        VALVE_INS = 2 * 100 * timer_counter * 0.001 / timer_counter;
+      if (timer_counter < (2 * PIP_TO_PLATEAU / 3)) {
+        //SOFT_INS =  2 * 10 * VALVE_INS * timer_counter * 0.1 / (3 * PIP_TO_PLATEAU);
+        SOFT_INS =  3 * 350 * timer_counter * 0.1 / (2 * PIP_TO_PLATEAU);
       } else {
-        VALVE_INS = 100;
+        SOFT_INS = 50;
       }
     }
   } else if (current_state == PLATEAU) {
@@ -170,13 +175,17 @@ void loop() {
     Serial.print(sensors.getPRES_INT_cm3H2O());
   }
 
-  if (print_state || print_fl_int || print_fl_pac_ins || print_fl_pac_exp || print_pres_pac || print_pres_int)
+  if (print_valve_in) {
+    Serial.print(SOFT_INS);
+  }
+
+  if (print_state || print_fl_int || print_fl_pac_ins || print_fl_pac_exp || print_pres_pac || print_pres_int || print_valve_in)
     Serial.println();
 
   // State machine
   switch (current_state) {
     case PIP:
-      valves.setINS_VALVE(VALVE_INS);
+      valves.setINS_VALVE(SOFT_INS);
       valves.setEXP_VALVE(0);
       break;
     case PLATEAU:
@@ -202,30 +211,27 @@ void loop() {
 
     if (part01.equals("START")) {
       current_state = PIP;
-      timerAlarmEnable(timer);
-    } else if (part01.equals("PRINT")) {
-      print_state = bool(getValue(part02, ';', 0).toFloat());
-      print_fl_int = bool(getValue(part02, ';', 1).toFloat());
-      print_fl_pac_ins = bool(getValue(part02, ';', 2).toFloat());
-      print_fl_pac_exp = bool(getValue(part02, ';', 3).toFloat());
-      print_pres_pac = bool(getValue(part02, ';', 4).toFloat());
-      print_pres_int = bool(getValue(part02, ';', 5).toFloat());
+      timerAlarmEnable(timer);} 
+      else if (part01.equals("PRINT")) {
+        switch (int(value)) {
+          case 0: print_state = true;
+                  break;
+          case 1: print_fl_int = true;
+                  break;
+          case 2: print_fl_pac_ins = true;
+                  break;
+          case 3: print_fl_pac_exp = true;
+                  break;
+          case 4: print_pres_pac = true;
+                  break;
+          case 5: print_pres_int = true;
+                  break;
+          default: break; 
+        }
     } else if (part01.equals("AUTO")) {
       valves.setAUTO_SEC_VALVE(bool(value));
     } else if (part01.equals("MANUAL")) {
       valves.setMANUAL_SEC_VALVE(bool(value));
-    } else if (part01.equals("INS")) {
-      valves.setINS_VALVE(value);
-    } else if (part01.equals("TEST")) {
-      for (int i = 69; i <= 100; i++) {
-        Serial.print(i);
-        valves.setINS_VALVE(i);
-        Serial.print('\t');
-        delay(1000);
-        sensors.update();
-        Serial.print(sensors.getFL_INT());
-        Serial.println();
-      }
     } else if (part01.equals("PIP")) {
         PIP_TO_PLATEAU = value;
     } else if (part01.equals("PLATEAU")) {
@@ -234,10 +240,12 @@ void loop() {
         PEEP_TO_PIP = value;
     } else if (part01.equals("VALVE_INS")) {
         VALVE_INS = value;
+    } else if (part01.equals("TEST")) {
+        print_valve_in = true;
     } else {
       valves.setEXP_VALVE(value);
     }
   
   }
-  delay(10);
+  delay(1);
 }

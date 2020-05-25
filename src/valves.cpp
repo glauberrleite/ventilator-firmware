@@ -21,14 +21,23 @@ Valves::Valves()
 
 void Valves::setINS_VALVE(float level)
 {
+    level = level > 100 ? 100 : level;
+    level = level < 0 ? 0 : level;
+
     // Valve starts to open around 68 percent, so we need to offset to make level variable work from 0 to 100
     float offset = level*(100 - 68)/100 + 68;
     int value = int((offset/100) * 1023); // [0,100] signal convertion to [0,1023] pwm
     ledcWrite(INS_PROP_VALVE_CH, value);
 }
 
+
+
+
 void Valves::setEXP_VALVE(float level)
 {
+    level = level > 100 ? 100 : level;
+    level = level < 0 ? 0 : level;
+
     level = -(level - 100); // Normally openned valve requires treatment to behave as expected in system's agreement, especified in valves.h 
     int value = int((level/100) * 1023); // [0,100] signal convertion to [0,1023] pwm    
     ledcWrite(EXP_PROP_VALVE_CH, value);

@@ -7,10 +7,16 @@
 class Sensors {
     protected:
         //Sensors variables
-        float fl_pac_ins;
-        float fl_pac_exp;
+        //Pressure readings from transducers used in flow estimation
+        float fl_ex_pres;//external transducer
+        float fl_in_pres;//internal transducer
+        //Internal system flow
         float fl_int;
+        //Pacient related flow
+        float fl_pac;
+        //Pacient pressure
         float pres_pac;
+        //Internal system pressure
         float pres_int;
 
         Adafruit_ADS1115 ads1;
@@ -23,10 +29,9 @@ class Sensors {
         void update();//Updates all sensors variables to all current sensor readings
 
         float getFL_INT();//Returns last updated value from FLow sensor in SLPM 
+        float getFL_PAC();
                 
         //Functions below returns latest updated values from Pressure sensors in PSI
-        float getFL_PAC_INS_PSI();
-        float getFL_PAC_EXP_PSI();
         float getPRES_PAC_PSI();
         float getPRES_INT_PSI();
         
@@ -43,4 +48,9 @@ class Sensors {
         float getPressureASDX(float v, float p_min, float p_max);//minimum and maximum pressures are determined for each sensor by datasheet
         float getPressureASDX001PDAA5(float v);//datasheet determines [-1,1] PSI reading range
         float getPressureASDX005NDAA5(float v);//datasheet determines [-5,5] PSI reading range
+
+        //Functions below returns latest updated values from Pressure sensors in PSI
+        //These pressures refers to a pair of transducers used to determine flow through Bernoulli equations
+        float getFL_PAC_INS_PSI();
+        float getFL_PAC_EXP_PSI();
 };

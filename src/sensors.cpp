@@ -22,12 +22,19 @@ Sensors::Sensors()
   this->ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
 
   // Initializing attributes  
-  this->fl_pac_ins = 0;
-  this->fl_pac_exp = 0;
+  this->fl_ex_pres = 0;
+  this->fl_in_pres = 0;
   this->fl_int = 0;
+  this->fl_pac = 0;
   this->pres_pac = 0;
   this->pres_int = 0;
 
+  // Information about flow sensor (Venturi Tube)
+  // Sectional area
+  float area_in = 0; // refers to sectional internal area of tube which to fl_in_pres is connected
+  float area_ex = 0; // refers to sectional external area of tube which to fl_ex_pres is connected
+  // Fluid density
+  float rho = 0;
 }
 
 void Sensors::update()
@@ -59,11 +66,14 @@ void Sensors::update()
     ads2_Voltage_ch3 = ads2_ch3 * ads_bit_Voltage;
 
     
-    this->fl_pac_ins = getPressureASDX001PDAA5(ads2_Voltage_ch0);
-    this->fl_pac_exp = getPressureASDX001PDAA5(ads2_Voltage_ch1);
+    this->fl_ex_pres = getPressureASDX001PDAA5(ads2_Voltage_ch0);
+    this->fl_in_pres = getPressureASDX001PDAA5(ads2_Voltage_ch1);
     this->fl_int = getFlowAWM720P(ads1_Voltage_ch0);
     this->pres_pac = getPressureASDX005NDAA5(ads2_Voltage_ch2);
     this->pres_int = getPressureASDX005NDAA5(ads2_Voltage_ch3);
+
+    //Deduced equation determines flux by means of differential pressure, corresponding sectional areas of veturi tube and gas density
+    this->fl_pac = this->area_ex*sqrt((2/this->rho)*((fl_ex_pres-fl_in_pres)/(pow(this->area_ex/this->area_in,2)-1)));
 }
 
 float Sensors::getFlowAWM720P(float v)
@@ -110,6 +120,11 @@ float Sensors::getFlowAWM720P(float v)
   return flow;
 }
 
+float Sensors::getFL_PAC()
+{
+  return this->fl_pac;
+}
+
 float Sensors::getPressureASDX(float v, float p_min, float p_max)
 {  
   v = v < 0.5 ? 0.5 : v;
@@ -131,12 +146,12 @@ float Sensors::getPressureASDX005NDAA5(float v)
 
 float Sensors::getFL_PAC_INS_PSI()
 {
-  return this->fl_pac_ins;
+  return this->fl_ex_pres;
 }
 
 float Sensors::getFL_PAC_EXP_PSI()
 {
-  return this->fl_pac_exp;
+  return this->fl_in_pres;
 }
 
 float Sensors::getFL_INT()
@@ -156,12 +171,12 @@ float Sensors::getPRES_INT_PSI()
 
 float Sensors::getFL_PAC_INS_cm3H2O()
 {
-  return this->fl_pac_ins * 70.307;
+  return this->fl_ex_pres * 70.307;
 }
 
 float Sensors::getFL_PAC_EXP_cm3H2O()
 {
-  return this->fl_pac_exp * 70.307;
+  return this->fl_in_pres * 70.307;
 }
 
 float Sensors::getPRES_PAC_cm3H2O()

@@ -19,6 +19,11 @@ class Sensors {
         //Internal system pressure
         float pres_int;
 
+        float area_in; // refers to sectional internal area of tube which to fl_in_pres is connected
+        float area_ex; // refers to sectional external area of tube which to fl_ex_pres is connected
+        // Fluid density
+        float density;
+
         Adafruit_ADS1115 ads1;
         Adafruit_ADS1115 ads2;
         float ads_bit_Voltage;

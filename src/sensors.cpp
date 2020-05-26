@@ -31,10 +31,12 @@ Sensors::Sensors()
 
   // Information about flow sensor (Venturi Tube)
   // Sectional area
-  this->area_in = 0; // refers to sectional internal area of tube which to fl_in_pres is connected
-  this->area_ex = 0; // refers to sectional external area of tube which to fl_ex_pres is connected
+  this->area_in = M_PI*39.0625; // refers to sectional internal area of tube which to fl_in_pres is connected in mm²
+  this->area_ex = M_PI*37.8225; // refers to sectional external area of tube which to fl_ex_pres is connected in mm²
   // Fluid density
-  this->density = 0;
+  this->density = 1.225; // kg/m³
+  // Variable gather all constant aspects
+  this->const_flux = this->area_ex*sqrt((2/this->density)*(1/(pow(this->area_ex/this->area_in,2)-1)))
 }
 
 void Sensors::update()
@@ -73,7 +75,7 @@ void Sensors::update()
     this->pres_int = getPressureASDX005NDAA5(ads2_Voltage_ch3);
 
     //Deduced equation determines flux by means of differential pressure, corresponding sectional areas of veturi tube and gas density
-    this->fl_pac = this->area_ex*sqrt((2/this->density)*((fl_ex_pres-fl_in_pres)/(pow(this->area_ex/this->area_in,2)-1)));
+    this->fl_pac = this->const_flux*sqrt(fl_ex_pres-fl_in_pres);
 }
 
 float Sensors::getFlowAWM720P(float v)

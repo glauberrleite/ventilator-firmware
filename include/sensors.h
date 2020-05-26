@@ -3,6 +3,7 @@
 #include <Adafruit_ADS1015.h>
 
 #define   ADC_16BIT_MAX     65536
+#define   M_PI              3.14159265358979323846
 
 class Sensors {
     protected:
@@ -21,6 +22,7 @@ class Sensors {
 
         float area_in; // refers to sectional internal area of tube which to fl_in_pres is connected
         float area_ex; // refers to sectional external area of tube which to fl_ex_pres is connected
+        float const_flux; // Variable gather all constant aspects
         // Fluid density
         float density;
 

@@ -16,16 +16,20 @@
 Sensors sensors;
 Valves valves;
 
+
 // Setting state times, in milliseconds
-volatile int PIP_TO_PLATEAU = 1000;
-volatile int PLATEAU_TO_PEEP = 1000;
-volatile int PEEP_TO_PIP = 2000;
+volatile int INHALE_TO_EXHALE;
+volatile int EXHALE_TO_PAUSE;
+volatile int PAUSE_TO_INHALE = 500;
+
+volatile int bpm = 15;
+volatile float ratio = 0.66;
 
 typedef enum {
     IDLE,
-    PIP,
-    PLATEAU,
-    PEEP
+    INHALE,
+    EXHALE,
+    PAUSE
 } state;
 
 volatile state current_state;
@@ -37,10 +41,10 @@ portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 // Print debug variables
 bool print_state;
 bool print_fl_int;
-bool print_fl_pac_ins;
-bool print_fl_pac_exp;
-bool print_pres_pac;
+bool print_fl_pac;
 bool print_pres_int;
+bool print_pres_pac;
+bool print_pres_ext;
 
 bool print_valve_in;
 
@@ -52,33 +56,26 @@ volatile float VALVE_INS = 100;
 // Timer callback
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
-  if (current_state == PIP) {
-    if (timer_counter >= PIP_TO_PLATEAU) {
-      current_state = PLATEAU;
+  if (current_state == INHALE) {
+    if (timer_counter >= INHALE_TO_EXHALE) {
+      current_state = EXHALE;
       timer_counter = 0;
       SOFT_INS = 0;
-      
     } else {
       timer_counter++;      
       
-      // Soft Starter
-      if (timer_counter < (2 * PIP_TO_PLATEAU / 3)) {
-        //SOFT_INS =  2 * 10 * VALVE_INS * timer_counter * 0.1 / (3 * PIP_TO_PLATEAU);
-        SOFT_INS =  3 * 350 * timer_counter * 0.1 / (2 * PIP_TO_PLATEAU);
-      } else {
-        SOFT_INS = 50;
-      }
+      SOFT_INS =  10 * 100 * timer_counter * 0.1 / INHALE_TO_EXHALE;
     }
-  } else if (current_state == PLATEAU) {
-    if (timer_counter >= PLATEAU_TO_PEEP) {
-      current_state = PEEP;
+  } else if (current_state == EXHALE) {
+    if (timer_counter >= EXHALE_TO_PAUSE) {
+      current_state = PAUSE;
       timer_counter = 0;
     } else {
       timer_counter++;
     }
-  } else if (current_state == PEEP) {
-    if (timer_counter >= PEEP_TO_PIP) {
-      current_state = PIP;
+  } else if (current_state == PAUSE) {
+    if (timer_counter >= PAUSE_TO_INHALE) {
+      current_state = INHALE;
       timer_counter = 0;
     } else {
       timer_counter++;
@@ -124,6 +121,14 @@ String getValue(String data, char separator, int index)
   return found>index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
+int calculateInhale(float bpm, float ratio) {
+  return (60000 / bpm) * (1 - ratio);
+}
+
+int calculateExhale(float bpm, float ratio) {
+  return (60000 / bpm) * ratio;
+}
+
 // Main setup and loop
 void setup() {
   Serial.begin(9600);
@@ -131,7 +136,6 @@ void setup() {
   // Sensors and Valves init
   sensors = Sensors();
   valves = Valves();
-
   // Stating State
   current_state = IDLE;
 
@@ -140,12 +144,14 @@ void setup() {
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 1000, true);
   timer_counter = 0;
+
+  INHALE_TO_EXHALE = calculateInhale(bpm, ratio);
+  EXHALE_TO_PAUSE = calculateExhale(bpm, ratio);
 }
 
 void loop() {
 
   sensors.update();
-
   if (print_state) {
     Serial.print(current_state);
     Serial.print("\t");
@@ -156,43 +162,45 @@ void loop() {
     Serial.print("\t");
   }
   
-  if (print_fl_pac_ins) {
-    Serial.print(sensors.getFL_PAC_INS_cm3H2O());
+  if (print_pres_int) {
+    Serial.print(sensors.getPRES_INT_cm3H2O());
     Serial.print("\t");
   }
-  
-  if (print_fl_pac_exp) {
-    Serial.print(sensors.getFL_PAC_EXP_cm3H2O());
+
+    if (print_pres_ext) {
+    Serial.print(sensors.getPRES_EXT_cm3H2O());
     Serial.print("\t");
   }
-  
+
   if (print_pres_pac) {
     Serial.print(sensors.getPRES_PAC_cm3H2O());
     Serial.print("\t");
   }
   
-  if (print_pres_int) {
-    Serial.print(sensors.getPRES_INT_cm3H2O());
+  if (print_fl_pac) {
+    Serial.print(sensors.getFL_PAC());
+    //Serial.print(sensors.getDIFF_PRES_PAC_cm3H2O());
+    Serial.print("\t");
   }
 
   if (print_valve_in) {
     Serial.print(SOFT_INS);
   }
 
-  if (print_state || print_fl_int || print_fl_pac_ins || print_fl_pac_exp || print_pres_pac || print_pres_int || print_valve_in)
+  if (print_state || print_fl_int || print_fl_pac || print_pres_pac || print_pres_int || print_pres_ext || print_valve_in)
     Serial.println();
 
   // State machine
   switch (current_state) {
-    case PIP:
+    case INHALE:
       valves.setINS_VALVE(SOFT_INS);
-      valves.setEXP_VALVE(0);
+      valves.setEXP_VALVE(0);   
       break;
-    case PLATEAU:
+    case PAUSE:
       valves.setINS_VALVE(0);
       valves.setEXP_VALVE(0);
       break;
-    case PEEP:
+    case EXHALE:
       valves.setINS_VALVE(0);
       valves.setEXP_VALVE(100);
       break;
@@ -210,7 +218,7 @@ void loop() {
     float value = part02.toFloat();
 
     if (part01.equals("START")) {
-      current_state = PIP;
+      current_state = INHALE;
       timerAlarmEnable(timer);} 
       else if (part01.equals("PRINT")) {
         switch (int(value)) {
@@ -218,13 +226,13 @@ void loop() {
                   break;
           case 1: print_fl_int = true;
                   break;
-          case 2: print_fl_pac_ins = true;
+          case 2: print_pres_int = true;
                   break;
-          case 3: print_fl_pac_exp = true;
+          case 3: print_pres_ext = true;
                   break;
           case 4: print_pres_pac = true;
                   break;
-          case 5: print_pres_int = true;
+          case 5: print_fl_pac = true;
                   break;
           default: break; 
         }
@@ -232,14 +240,13 @@ void loop() {
       valves.setAUTO_SEC_VALVE(bool(value));
     } else if (part01.equals("MANUAL")) {
       valves.setMANUAL_SEC_VALVE(bool(value));
-    } else if (part01.equals("PIP")) {
-        PIP_TO_PLATEAU = value;
-    } else if (part01.equals("PLATEAU")) {
-        PLATEAU_TO_PEEP = value;
-    } else if (part01.equals("PEEP")) {
-        PEEP_TO_PIP = value;
     } else if (part01.equals("VALVE_INS")) {
         VALVE_INS = value;
+    } else if (part01.equals("BPM")) {
+        INHALE_TO_EXHALE = calculateInhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
+        EXHALE_TO_PAUSE = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
+    } else if (part01.equals("PAUSE")) {
+        PAUSE_TO_INHALE = value;
     } else if (part01.equals("TEST")) {
         print_valve_in = true;
     } else {
@@ -247,5 +254,5 @@ void loop() {
     }
   
   }
-  delay(1);
+  delay(10);
 }

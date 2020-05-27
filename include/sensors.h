@@ -8,23 +8,21 @@
 class Sensors {
     protected:
         //Sensors variables
-        //Pressure readings from transducers used in flow estimation
-        float fl_ex_pres;//external transducer
-        float fl_in_pres;//internal transducer
-        //Internal system flow
+        // Internal system flow
         float fl_int;
-        //Pacient related flow
+        // Pacient related flow
         float fl_pac;
-        //Pacient pressure
+        // Pressure difference to compute flux
+        float diff_pres_pac;
+        // Pacient pressure
         float pres_pac;
-        //Internal system pressure
+        // Internal system pressure
         float pres_int;
 
-        float area_in; // refers to sectional internal area of tube which to fl_in_pres is connected
-        float area_ex; // refers to sectional external area of tube which to fl_ex_pres is connected
-        float const_flux; // Variable gather all constant aspects
-        // Fluid density
-        float density;
+        float pres_ext;
+
+        // Poiseulle constant calculated from sensor parameters
+        float const_flux;
 
         Adafruit_ADS1115 ads1;
         Adafruit_ADS1115 ads2;
@@ -41,12 +39,13 @@ class Sensors {
         //Functions below returns latest updated values from Pressure sensors in PSI
         float getPRES_PAC_PSI();
         float getPRES_INT_PSI();
+        float getPRES_EXT_PSI();
         
         //Functions below returns latest updated values from Pressure sensors in cm3H2O
-        float getFL_PAC_INS_cm3H2O();
-        float getFL_PAC_EXP_cm3H2O();
         float getPRES_PAC_cm3H2O();
         float getPRES_INT_cm3H2O();
+        float getPRES_EXT_cm3H2O();
+        float getDIFF_PRES_PAC_cm3H2O();
 
     private:
         //Functions below are called in update() with the readings from corresponding ports set as parameters
@@ -54,10 +53,6 @@ class Sensors {
         float getFlowAWM720P(float v);
         float getPressureASDX(float v, float p_min, float p_max);//minimum and maximum pressures are determined for each sensor by datasheet
         float getPressureASDX001PDAA5(float v);//datasheet determines [-1,1] PSI reading range
-        float getPressureASDX005NDAA5(float v);//datasheet determines [-5,5] PSI reading range
+        float getPressureASDX005NDAA5(float v);//datasheet determines [-5,5] inH2O reading range
 
-        //Functions below returns latest updated values from Pressure sensors in PSI
-        //These pressures refers to a pair of transducers used to determine flow through Bernoulli equations
-        float getFL_PAC_INS_PSI();
-        float getFL_PAC_EXP_PSI();
 };

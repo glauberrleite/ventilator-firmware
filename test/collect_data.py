@@ -3,11 +3,13 @@ import numpy as np
 import time
 import signal
 import sys
+import pandas as pd
 
 def signal_handler(sig, frame):
     ser.close()
     
-    # Implement code here
+    df = pd.DataFrame(y, columns=["state", "fl_int", "fl_pac_ins", "fl_pac_exp", "pres_pac", "pres_int"])
+    df.to_csv('list.csv', index=False)
     print("XAU")
 
     sys.exit(0)
@@ -19,7 +21,7 @@ Ts = 0.01
 x=list()
 y=list()
 k = 0
-ser = serial.Serial('COM9', 9600)
+ser = serial.Serial('/dev/ttyACM0', 9600)
 ser.close()
 ser.open()
 #ser.write("START".encode())
@@ -38,7 +40,7 @@ while True:
     state, fl_int, fl_pac_ins, fl_pac_exp, pres_pac, pres_int = data.split('\t')
     
     x.append(k * Ts)
-    #y.append(float(pres_pac))
+    y.append([float(state), float(fl_int), float(fl_pac_ins), float(fl_pac_exp), float(pres_pac), float(pres_int)])
 
     #plt.scatter(k * Ts, float(pres_pac), c='blue')
     #plt.plot(x, y, linewidth=2, c='blue')

@@ -16,6 +16,7 @@ class Valves {
                 - 100 will open it completely.
             In other words, 'level' represents valve's openness*/
         void setINS_VALVE(float level); // Inspiratory valve
+        void setINS_VALVE_PWM(int value); // Inspiratory valve in PWM (for tests)
         void setEXP_VALVE(float level); // Expiratory valve
         //Security valves can be either open(true) or closed(false)
         void setMANUAL_SEC_VALVE(bool on);

@@ -30,6 +30,14 @@ void Valves::setINS_VALVE(float level)
     ledcWrite(INS_PROP_VALVE_CH, value);
 }
 
+void Valves::setINS_VALVE_PWM(int value)
+{
+    value = value > 1023 ? 1023 : value;
+    value = value < 0 ? 0 : value;
+    ledcWrite(INS_PROP_VALVE_CH, value);
+}
+
+
 void Valves::setEXP_VALVE(float level)
 {
     level = level > 100 ? 100 : level;

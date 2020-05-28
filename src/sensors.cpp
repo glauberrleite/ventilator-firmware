@@ -23,14 +23,18 @@ Sensors::Sensors()
 
   // Initializing attributes 
   this->fl_int = 0;
-  //this->fl_pac = 0;
+  this->fl_pac = 0;
   this->pres_pac = 0;
   this->pres_int = 0;
   this->pres_ext = 0;
   this->diff_pres_pac = 0;
 
-  //this->const_flux = 240.25103856;
+  this->const_flux = 240.25103856;
   //this->const_flux = (M_PI * pow(6.2, 2)) * sqrt(2/1.225) * 60000;
+
+  this->a1 = 0.1513;
+  this->a2 = - 3.3424;
+  this->a3 = 41.657;
 }
 
 void Sensors::update()
@@ -72,12 +76,14 @@ void Sensors::update()
 
     //this->fl_pac = signal * this->const_flux * sqrt(abs(this->diff_pres_pac) * 6894.757); // Flux in m3/s
     //this->fl_pac = this->fl_pac * 6; // Flux in l/min
-    //this->fl_pac = this->const_flux * this->diff_pres_pac;
+    this->fl_pac = this->const_flux * this->diff_pres_pac;
 
     //float signal = this->diff_pres_pac >= 0 ? 1 : -1;
     //this->fl_pac = signal * (M_PI * pow(0.244, 2)) * sqrt((200000/4.425593) * abs(this->diff_pres_pac * 0.0360912));
-    float vf = 0.1513 * (this->diff_pres_pac * this->diff_pres_pac * this->diff_pres_pac) - 3.3424 * (this->diff_pres_pac * this->diff_pres_pac) + 41.657 * this->diff_pres_pac;
-    this->fl_pac = 0.8 * this->fl_pac + 0.2 * vf;
+    // float vf = 0.1513 * (this->diff_pres_pac * this->diff_pres_pac * this->diff_pres_pac) - 3.3424 * (this->diff_pres_pac * this->diff_pres_pac) + 41.657 * this->diff_pres_pac;
+    
+    //float vf =  this->a1 * pow(this->getDIFF_PRES_PAC_PSI(), 3) + this->a2 * pow(this->getDIFF_PRES_PAC_PSI(), 2) + this->a3 * this->getDIFF_PRES_PAC_PSI();
+    //this->fl_pac = 0.8 * this->fl_pac + 0.2 * vf;
     //this->fl_pac = signal * this->const_flux * sqrt(abs(this->diff_pres_pac) * 248.84);
 
 }
@@ -190,4 +196,10 @@ float Sensors::getDIFF_PRES_PAC_cm3H2O()
 {
   // Need to convert to psi, then to cmH2O
   return this->diff_pres_pac * 0.0360912 * 70.307;
+}
+
+float Sensors::getDIFF_PRES_PAC_PSI()
+{
+  // Need to convert to psi
+  return this->diff_pres_pac * 0.0360912;
 }

@@ -46,6 +46,11 @@ class Sensors {
         float getPRES_INT_cm3H2O();
         float getPRES_EXT_cm3H2O();
         float getDIFF_PRES_PAC_cm3H2O();
+        float getDIFF_PRES_PAC_PSI();
+
+        float a1;
+        float a2;
+        float a3;
 
     private:
         //Functions below are called in update() with the readings from corresponding ports set as parameters

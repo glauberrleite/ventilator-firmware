@@ -8,7 +8,7 @@ import pandas as pd
 def signal_handler(sig, frame):
     ser.close()
     
-    df = pd.DataFrame(y, columns=["state", "fl_int", "fl_pac_ins", "fl_pac_exp", "pres_pac", "pres_int"])
+    df = pd.DataFrame(y, columns=["time", "state", "fl_int", "fl_pac_ins", "fl_pac_exp", "pres_pac", "pres_int"])
     df.to_csv('list.csv', index=False)
     print("XAU")
 
@@ -39,8 +39,7 @@ while True:
     print(data)
     state, fl_int, fl_pac_ins, fl_pac_exp, pres_pac, pres_int = data.split('\t')
     
-    x.append(k * Ts)
-    y.append([float(state), float(fl_int), float(fl_pac_ins), float(fl_pac_exp), float(pres_pac), float(pres_int)])
+    y.append([k * Ts, float(state), float(fl_int), float(fl_pac_ins), float(fl_pac_exp), float(pres_pac), float(pres_int)])
 
     #plt.scatter(k * Ts, float(pres_pac), c='blue')
     #plt.plot(x, y, linewidth=2, c='blue')

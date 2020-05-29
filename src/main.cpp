@@ -13,7 +13,7 @@
 #include "sensors.h"
 #include "valves.h"
 
-#define Ts    0.05
+#define Ts    0.001
 #define BPM   15
 #define RATIO 0.66
 
@@ -26,14 +26,12 @@ volatile float plateau_ref;
 
 // Setting state times, in milliseconds
 volatile int INHALE_TO_EXHALE = 5000;
-volatile int PAUSE_TO_INHALE = 500;
-volatile int EXHALE_TO_PAUSE = 5000;
+volatile int EXHALE_TO_INHALE = 5000;
 
 typedef enum {
     IDLE,
     INHALE,
     EXHALE,
-    PAUSE,
     TEST
 } state;
 
@@ -56,15 +54,19 @@ bool print_valve_in;
 float VALVE_INS = 0;
 
 // PID variables
-float Kp = 0.1;
-float Ki = 0.001;
-float Kd = 0.001;
+float Kp = 0.1; // 5.8
+float Ki = 0.001; // 500
+float Kd = 0.001; // 0
 
 float delta_ins = 0;
 float error = 0;
 float ierror = 0;
 float derror = 0;
+float pid_prop = 0;
+float pid_int = 0;
+float pid_der = 0;
 float prev_error = 0;
+float prev_ierror = 0;
 
 // Custom functions
 
@@ -79,20 +81,13 @@ void IRAM_ATTR onTimer() {
       timer_counter++;
     }
   } else if (current_state == EXHALE) {
-    if (timer_counter >= EXHALE_TO_PAUSE) {
+    if (timer_counter >= EXHALE_TO_INHALE) {
       current_state = INHALE;
       timer_counter = 0;
     } else {
       timer_counter++;
     }
-  } else if (current_state == PAUSE) {
-    if (timer_counter >= PAUSE_TO_INHALE) {
-      current_state = INHALE;
-      timer_counter = 0;
-    } else {
-      timer_counter++;
-    }
-  }
+  } 
   portEXIT_CRITICAL_ISR(&timerMux);
  
 }
@@ -157,11 +152,13 @@ void setup() {
   timerAlarmWrite(timer, 1000, true);
   timer_counter = 0;
 
-  //INHALE_TO_EXHALE = calculateInhale(BPM, RATIO);
-  //EXHALE_TO_PAUSE = calculateExhale(BPM, RATIO);
+  INHALE_TO_EXHALE = calculateInhale(BPM, RATIO);
+  EXHALE_TO_INHALE = calculateExhale(BPM, RATIO);
 }
 
-int ins_pwm = 0;
+// TEST state variables
+int ins = 650;
+bool flag = false;
 void loop() {
 
   sensors.update();
@@ -203,8 +200,16 @@ void loop() {
   }
 
   if (print_state || print_fl_int || print_fl_pac || print_pres_pac || print_pres_int || print_pres_ext || print_valve_in) {
-    Serial.print(float(ins_pwm)/100);
-    Serial.print("\t");
+    //Serial.print(ins);
+    //Serial.print(pid_prop);
+    //Serial.print("\t");
+
+    //Serial.print(pid_int);
+    //Serial.print("\t");
+
+    //Serial.print(pid_der);
+    //Serial.print("\t");
+
     //Serial.print(plateau_ref);
     Serial.println();
   }
@@ -213,27 +218,38 @@ void loop() {
 
   switch (current_state) {
     case INHALE:
-      plateau = 15;
+      plateau = 10;
+      plateau_ref = 10;
 
       // Setpoint
-      if (timer_counter < (INHALE_TO_EXHALE)) {
-        plateau_ref = ( plateau * timer_counter) / INHALE_TO_EXHALE;
+      if (timer_counter < (INHALE_TO_EXHALE/4)) {
+        plateau_ref = (4 * plateau * timer_counter) / INHALE_TO_EXHALE;
       }
 
       // Using plateau as reference, adjusting PID
       if (sensors.getPRES_PAC_cm3H2O() > 30) {
         current_state = EXHALE;
       }
+
       error = plateau_ref - sensors.getPRES_PAC_cm3H2O();
       
       ierror += error * Ts;
+      
       derror = (error - prev_error) / Ts;
+      //derror = (sensors.getPRES_PAC_cm3H2O() - last_y) / Ts;
 
-      delta_ins = Kp * error + Ki * ierror + Kd * derror;
+      pid_prop = Kp * error;
+      pid_int = Ki * ierror;
+      pid_der = Kd * derror;
+
+      // conditional integration
+      pid_int = pid_int >= 30 ? 30 : pid_int;
+
+      delta_ins = pid_prop + pid_int + pid_der;
 
       // Constraint in control action
       //delta_ins = delta_ins > 10 ? 10 : delta_ins;
-      //delta_ins = delta_ins < -30 ? -30 : delta_ins;
+      //delta_ins = delta_ins < -50 ? -50 : delta_ins;
 
       VALVE_INS = delta_ins;
     
@@ -245,27 +261,37 @@ void loop() {
       valves.setEXP_VALVE(0);
 
       prev_error = error;
+      prev_ierror = ierror;
       break;
     case EXHALE:
       // Reset Inhale PID
       plateau = 0;
       plateau_ref = 0;
       ierror = 0;
+      pid_prop = 0;
+      pid_int = 0;
+      pid_der = 0;
       prev_error = 0;
+      prev_ierror = 0;
       VALVE_INS = 0;
 
       // Exhale valves configuration
       valves.setINS_VALVE(0);
       valves.setEXP_VALVE(100);
       break;
-    case PAUSE:
-      valves.setINS_VALVE(0);
-      valves.setEXP_VALVE(0);
-      break;
     case TEST:
-      valves.setINS_VALVE_PWM(ins_pwm);
-      ins_pwm++;
-      ins_pwm = ins_pwm > 1023 ? 1023 : ins_pwm;
+      valves.setINS_VALVE_PWM(ins);
+      if (flag) {
+        ins--;
+      } else {
+        ins++;
+      }
+      if (ins >= 950) {
+        ins = 950;
+      }
+      if (ins <= 650) {
+        flag = false;
+      }
       break;
     default: break;
   }
@@ -307,9 +333,7 @@ void loop() {
         valves.setINS_VALVE(value);
     } else if (part01.equals("BPM")) {
         INHALE_TO_EXHALE = calculateInhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
-        EXHALE_TO_PAUSE = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
-    } else if (part01.equals("PAUSE")) {
-        PAUSE_TO_INHALE = value;
+        EXHALE_TO_INHALE = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
     } else if (part01.equals("PLATEAU")) {
         plateau = value;
     } else if (part01.equals("PRINT_INS")) {
@@ -324,6 +348,7 @@ void loop() {
         sensors.a3 = getValue(part02, ';', 2).toFloat();
     } else if (part01.equals("TEST")) {
         current_state = TEST;
+        print_fl_int = true;
         delay(5000);
     } else {
       valves.setEXP_VALVE(value);

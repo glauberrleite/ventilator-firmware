@@ -24,9 +24,18 @@ void Valves::setINS_VALVE(float level)
     level = level > 100 ? 100 : level;
     level = level < 0 ? 0 : level;
 
-    // Valve starts to open around 68 percent, so we need to offset to make level variable work from 0 to 100
-    float offset = level*(100 - 40)/100 + 40;
-    int value = int((offset/100) * 1023); // [0,100] signal convertion to [0,1023] pwm
+    int value;
+    // It's only a try
+    if (level > 2) {
+        float z = (level - 62)/32;
+        //value = int(-12 * pow(z, 4) + 31 * pow(z, 3) + 43 * pow(z, 2) + 43 * z + 780);
+        //value = int(-33 * pow(z, 10) + 11 * pow(z, 9) + 72 * pow(z, 8) - 110 * pow(z, 7) - 28 * pow(z, 6) + 210 * pow(z, 5) - 2.2 * pow(z, 4) - 110 * pow(z, 3) + 16 * pow(z, 2) + 71 * z + 790);
+        value = 17 * pow(z, 3) + 37 * pow(z, 2) + 60 * z + 800;
+    } else {
+        value = 670;
+    }
+
+    //int value = int(3*level + 650); // [0,100] signal convertion to [650,950] pwm
     ledcWrite(INS_PROP_VALVE_CH, value);
 }
 

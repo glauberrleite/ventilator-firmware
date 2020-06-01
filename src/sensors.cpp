@@ -29,7 +29,8 @@ Sensors::Sensors()
   this->pres_ext = 0;
   this->diff_pres_pac = 0;
 
-  this->const_flux = 240.25103856;
+  //this->const_flux = 240.25103856;
+  this->const_flux = 280;
   //this->const_flux = (M_PI * pow(6.2, 2)) * sqrt(2/1.225) * 60000;
 
   this->a1 = 0.1513;
@@ -76,7 +77,7 @@ void Sensors::update()
 
     //this->fl_pac = signal * this->const_flux * sqrt(abs(this->diff_pres_pac) * 6894.757); // Flux in m3/s
     //this->fl_pac = this->fl_pac * 6; // Flux in l/min
-    this->fl_pac = this->const_flux * this->diff_pres_pac;
+    this->fl_pac = this->const_flux * this->diff_pres_pac + 5.5;
     //this->fl_pac = this->diff_pres_pac;
 
     //float signal = this->diff_pres_pac >= 0 ? 1 : -1;

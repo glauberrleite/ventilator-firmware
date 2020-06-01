@@ -21,7 +21,7 @@
 Sensors sensors;
 Valves valves;
 
-volatile float plateau = 15;
+volatile float plateau = 10;
 volatile float plateau_ref;
 
 // Setting state times, in milliseconds
@@ -54,10 +54,12 @@ bool print_valve_in;
 float VALVE_INS = 0;
 
 // PID variables
-float Kp = 0.1; // 5.8
-float Ki = 0.001; // 500
-float Kd = 0.001; // 0
+float Kp = 5.65;
+float Ki = 225;
+float Kd = 0.001;
 
+float alpha = 0.1;
+float pid_out = 0;
 float delta_ins = 0;
 float error = 0;
 float ierror = 0;
@@ -67,6 +69,8 @@ float pid_int = 0;
 float pid_der = 0;
 float prev_error = 0;
 float prev_ierror = 0;
+float prev_derror = 0;
+float prev_pid_out = 0;
 
 // Custom functions
 
@@ -143,6 +147,7 @@ void setup() {
   // Sensors and Valves init
   sensors = Sensors();
   valves = Valves();
+
   // Stating State
   current_state = IDLE;
 
@@ -190,13 +195,14 @@ void loop() {
   }
   
   if (print_fl_pac) {
-    Serial.print(sensors.getFL_PAC());
+    Serial.print(sensors.getFL_PAC(), 4);
     //Serial.print(sensors.getDIFF_PRES_PAC_cm3H2O());
     Serial.print("\t");
   }
    
   if (print_valve_in) {
     Serial.print(VALVE_INS);
+    Serial.print("\t");
   }
 
   if (print_state || print_fl_int || print_fl_pac || print_pres_pac || print_pres_int || print_pres_ext || print_valve_in) {
@@ -218,17 +224,18 @@ void loop() {
 
   switch (current_state) {
     case INHALE:
-      plateau = 10;
-      plateau_ref = 10;
 
       // Setpoint
       if (timer_counter < (INHALE_TO_EXHALE/4)) {
         plateau_ref = (4 * plateau * timer_counter) / INHALE_TO_EXHALE;
+      } else {
+        plateau_ref = plateau;
       }
 
       // Using plateau as reference, adjusting PID
       if (sensors.getPRES_PAC_cm3H2O() > 30) {
         current_state = EXHALE;
+        timer_counter = 0;
       }
 
       error = plateau_ref - sensors.getPRES_PAC_cm3H2O();
@@ -236,22 +243,27 @@ void loop() {
       ierror += error * Ts;
       
       derror = (error - prev_error) / Ts;
+      derror = (1 - alpha) * prev_error + alpha * derror;
       //derror = (sensors.getPRES_PAC_cm3H2O() - last_y) / Ts;
+      //float dfilter_coeff = 0.5;      
 
       pid_prop = Kp * error;
       pid_int = Ki * ierror;
+      //pid_der = prev_error - dfilter_coeff * Ts * prev_error  + Kd * dfilter_coeff * derror;
       pid_der = Kd * derror;
 
       // conditional integration
       pid_int = pid_int >= 30 ? 30 : pid_int;
 
-      delta_ins = pid_prop + pid_int + pid_der;
+      pid_out = pid_prop + pid_int + pid_der;
 
-      // Constraint in control action
-      //delta_ins = delta_ins > 10 ? 10 : delta_ins;
-      //delta_ins = delta_ins < -50 ? -50 : delta_ins;
+      delta_ins = pid_out - prev_pid_out;
+      
+      // Constraint in control effort
+      pid_out = delta_ins > 50 ? 50 : pid_out;
+      pid_out = delta_ins < -50 ? -50 : pid_out;
 
-      VALVE_INS = delta_ins;
+      VALVE_INS = pid_out;
     
       // Constraint in control action
       VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
@@ -262,10 +274,11 @@ void loop() {
 
       prev_error = error;
       prev_ierror = ierror;
+      prev_derror = derror;
+      prev_pid_out = pid_out;
       break;
     case EXHALE:
       // Reset Inhale PID
-      plateau = 0;
       plateau_ref = 0;
       ierror = 0;
       pid_prop = 0;
@@ -273,6 +286,7 @@ void loop() {
       pid_der = 0;
       prev_error = 0;
       prev_ierror = 0;
+      prev_pid_out = 0;
       VALVE_INS = 0;
 
       // Exhale valves configuration
@@ -281,6 +295,7 @@ void loop() {
       break;
     case TEST:
       valves.setINS_VALVE_PWM(ins);
+      valves.setEXP_VALVE(0);
       if (flag) {
         ins--;
       } else {
@@ -288,9 +303,17 @@ void loop() {
       }
       if (ins >= 950) {
         ins = 950;
+        flag = true;
       }
       if (ins <= 650) {
         flag = false;
+      }
+      if (sensors.getPRES_PAC_cm3H2O() >= 30) {
+        Serial.println("------------");
+        current_state = EXHALE;
+        print_fl_int = false;
+        print_fl_pac = false;
+        print_pres_pac = false;
       }
       break;
     default: break;
@@ -308,8 +331,8 @@ void loop() {
 
     if (part01.equals("START")) {
       current_state = INHALE;
-      timerAlarmEnable(timer);} 
-      else if (part01.equals("PRINT")) {
+      timerAlarmEnable(timer);
+    } else if (part01.equals("PRINT")) {
         switch (int(value)) {
           case 0: print_state = true;
                   break;
@@ -342,6 +365,8 @@ void loop() {
         Kp = getValue(part02, ';', 0).toFloat();
         Ki = getValue(part02, ';', 1).toFloat();
         Kd = getValue(part02, ';', 2).toFloat();
+    } else if (part01.equals("ALPHA")) {
+        alpha = value;
     } else if (part01.equals("COEF")) {
         sensors.a1 = getValue(part02, ';', 0).toFloat();
         sensors.a2 = getValue(part02, ';', 1).toFloat();
@@ -349,7 +374,10 @@ void loop() {
     } else if (part01.equals("TEST")) {
         current_state = TEST;
         print_fl_int = true;
-        delay(5000);
+        print_fl_pac = true;
+        print_pres_pac = true;
+        //print_pres_int = true; 
+        delay(3000);
     } else {
       valves.setEXP_VALVE(value);
     }

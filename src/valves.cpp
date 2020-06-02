@@ -25,7 +25,6 @@ void Valves::setINS_VALVE(float level)
     level = level < 0 ? 0 : level;
 
     int value;
-    // It's only a try
     if (level > 2) {
         float z = (level - 62)/32;
         //value = int(-12 * pow(z, 4) + 31 * pow(z, 3) + 43 * pow(z, 2) + 43 * z + 780);

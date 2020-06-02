@@ -53,10 +53,12 @@ bool print_valve_in;
 
 float VALVE_INS = 0;
 
+float pres_init = 0;
+
 // PID variables
-float Kp = 5.65;
-float Ki = 225;
-float Kd = 0.001;
+float Kp = 5.2;
+float Ki = 75;
+float Kd = 1.25;
 
 float alpha = 0.1;
 float pid_out = 0;
@@ -68,9 +70,12 @@ float pid_prop = 0;
 float pid_int = 0;
 float pid_der = 0;
 float prev_error = 0;
+float prev_pid_prop = 0;
 float prev_ierror = 0;
 float prev_derror = 0;
 float prev_pid_out = 0;
+float delta_u = 0;
+float tau_aw = 1;
 
 // Custom functions
 
@@ -159,6 +164,7 @@ void setup() {
 
   INHALE_TO_EXHALE = calculateInhale(BPM, RATIO);
   EXHALE_TO_INHALE = calculateExhale(BPM, RATIO);
+  tau_aw = sqrt(1/(Ki * Kd));
 }
 
 // TEST state variables
@@ -167,7 +173,7 @@ bool flag = false;
 void loop() {
 
   sensors.update();
-  
+
   // Printing variables
   if (print_state) {
     Serial.print(current_state);
@@ -199,7 +205,7 @@ void loop() {
     //Serial.print(sensors.getDIFF_PRES_PAC_cm3H2O());
     Serial.print("\t");
   }
-   
+  
   if (print_valve_in) {
     Serial.print(VALVE_INS);
     Serial.print("\t");
@@ -216,7 +222,7 @@ void loop() {
     //Serial.print(pid_der);
     //Serial.print("\t");
 
-    //Serial.print(plateau_ref);
+    Serial.print(plateau_ref);
     Serial.println();
   }
 
@@ -226,48 +232,56 @@ void loop() {
     case INHALE:
 
       // Setpoint
-      if (timer_counter < (INHALE_TO_EXHALE/4)) {
-        plateau_ref = (4 * plateau * timer_counter) / INHALE_TO_EXHALE;
+      /*if (timer_counter < (INHALE_TO_EXHALE/5)) {
+        plateau_ref = ((5 * (plateau - pres_init) * timer_counter) / INHALE_TO_EXHALE) + pres_init;
       } else {
         plateau_ref = plateau;
-      }
+      }*/
 
-      // Using plateau as reference, adjusting PID
+      // Pressure security condition
       if (sensors.getPRES_PAC_cm3H2O() > 30) {
         current_state = EXHALE;
         timer_counter = 0;
       }
 
+      // Using plateau as reference, adjusting PID     
+
+      plateau_ref = plateau;
+
       error = plateau_ref - sensors.getPRES_PAC_cm3H2O();
       
-      ierror += error * Ts;
-      
-      derror = (error - prev_error) / Ts;
-      derror = (1 - alpha) * prev_error + alpha * derror;
-      //derror = (sensors.getPRES_PAC_cm3H2O() - last_y) / Ts;
-      //float dfilter_coeff = 0.5;      
-
+      /* Proportional calc with constraints */
       pid_prop = Kp * error;
-      pid_int = Ki * ierror;
-      //pid_der = prev_error - dfilter_coeff * Ts * prev_error  + Kd * dfilter_coeff * derror;
+
+      /* Integrative calc */
+      //ierror += error * Ts;
+      //pid_int = Ki * ierror;
+      pid_int = pid_int + Ts * (Ki * error + (Kp/tau_aw) * delta_u);
+
+      /* Derivative calc */
+      //derror = (error - prev_error) / Ts;
+      derror = (1 - alpha) * prev_error + alpha * derror;
       pid_der = Kd * derror;
 
       // conditional integration
-      pid_int = pid_int >= 30 ? 30 : pid_int;
+      //pid_int = pid_int >= 30 ? 30 : pid_int;
 
       pid_out = pid_prop + pid_int + pid_der;
 
       delta_ins = pid_out - prev_pid_out;
       
       // Constraint in control effort
-      pid_out = delta_ins > 50 ? 50 : pid_out;
-      pid_out = delta_ins < -50 ? -50 : pid_out;
+      pid_out = delta_ins > 5 ? prev_pid_out + 5 : pid_out;
+      pid_out = delta_ins < -5 ? prev_pid_out - 5 : pid_out;
 
       VALVE_INS = pid_out;
     
       // Constraint in control action
       VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
       VALVE_INS = VALVE_INS < 0 ? 0 : VALVE_INS;
+
+      // Anti windup component
+      delta_u = VALVE_INS - pid_out;
 
       valves.setINS_VALVE(VALVE_INS);
       valves.setEXP_VALVE(0);
@@ -276,6 +290,7 @@ void loop() {
       prev_ierror = ierror;
       prev_derror = derror;
       prev_pid_out = pid_out;
+      prev_pid_prop = pid_prop;
       break;
     case EXHALE:
       // Reset Inhale PID
@@ -287,11 +302,15 @@ void loop() {
       prev_error = 0;
       prev_ierror = 0;
       prev_pid_out = 0;
+      prev_pid_prop = 0;
       VALVE_INS = 0;
+      delta_u = 0;
 
       // Exhale valves configuration
       valves.setINS_VALVE(0);
       valves.setEXP_VALVE(100);
+
+      pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
       break;
     case TEST:
       valves.setINS_VALVE_PWM(ins);
@@ -365,6 +384,7 @@ void loop() {
         Kp = getValue(part02, ';', 0).toFloat();
         Ki = getValue(part02, ';', 1).toFloat();
         Kd = getValue(part02, ';', 2).toFloat();
+        tau_aw = sqrt(1/(Ki * Kd));
     } else if (part01.equals("ALPHA")) {
         alpha = value;
     } else if (part01.equals("COEF")) {

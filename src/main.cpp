@@ -70,10 +70,9 @@ float pid_prop = 0;
 float pid_int = 0;
 float pid_der = 0;
 float prev_error = 0;
-float prev_pid_prop = 0;
+float prev_pid_out = 0;
 float prev_ierror = 0;
 float prev_derror = 0;
-float prev_pid_out = 0;
 float delta_u = 0;
 float tau_aw = 1;
 
@@ -290,7 +289,6 @@ void loop() {
       prev_ierror = ierror;
       prev_derror = derror;
       prev_pid_out = pid_out;
-      prev_pid_prop = pid_prop;
       break;
     case EXHALE:
       // Reset Inhale PID
@@ -302,7 +300,6 @@ void loop() {
       prev_error = 0;
       prev_ierror = 0;
       prev_pid_out = 0;
-      prev_pid_prop = 0;
       VALVE_INS = 0;
       delta_u = 0;
 

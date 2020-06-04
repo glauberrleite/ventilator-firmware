@@ -75,17 +75,21 @@ float prev_ierror = 0;
 float prev_derror = 0;
 float delta_u = 0;
 float tau_aw = 1;
-
+float volume =0;
+int old_timer =0;
 // Custom functions
 
 // Timer callback
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
+
+  volume = volume *
   if (current_state == INHALE) {
     if (timer_counter >= INHALE_TO_EXHALE) {
       current_state = EXHALE;
       timer_counter = 0;
     } else {
+      old_timer = timer_counter;
       timer_counter++;
     }
   } else if (current_state == EXHALE) {
@@ -200,7 +204,7 @@ void loop() {
   }
   
   if (print_fl_pac) {
-    Serial.print(-sensors.getFL_PAC()-9.46, 4);
+    Serial.print(sensors.getFL_PAC()+9.46, 4);
     //Serial.print(sensors.getDIFF_PRES_PAC_cm3H2O());
     Serial.print("\t");
   }
@@ -229,6 +233,8 @@ void loop() {
 
   switch (current_state) {
     case INHALE:
+      print_fl_int = true;
+      print_fl_pac = false;
 
       // Setpoint
       /*if (timer_counter < (INHALE_TO_EXHALE/5)) {
@@ -291,6 +297,8 @@ void loop() {
       prev_pid_out = pid_out;
       break;
     case EXHALE:
+      print_fl_int = false;
+      print_fl_pac = true;
       // Reset Inhale PID
       plateau_ref = 0;
       ierror = 0;

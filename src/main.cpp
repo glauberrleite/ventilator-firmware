@@ -200,7 +200,7 @@ void loop() {
   }
   
   if (print_fl_pac) {
-    Serial.print(sensors.getFL_PAC(), 4);
+    Serial.print(-sensors.getFL_PAC()-9.46, 4);
     //Serial.print(sensors.getDIFF_PRES_PAC_cm3H2O());
     Serial.print("\t");
   }
@@ -221,7 +221,7 @@ void loop() {
     //Serial.print(pid_der);
     //Serial.print("\t");
 
-    Serial.print(plateau_ref);
+    //Serial.print(plateau_ref);
     Serial.println();
   }
 
@@ -317,6 +317,7 @@ void loop() {
       } else {
         ins++;
       }
+      //O valor correto é 950;
       if (ins >= 950) {
         ins = 950;
         flag = true;
@@ -392,7 +393,7 @@ void loop() {
         current_state = TEST;
         print_fl_int = true;
         print_fl_pac = true;
-        print_pres_pac = true;
+        //print_pres_pac = true;
         //print_pres_int = true; 
         delay(3000);
     } else {

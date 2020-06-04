@@ -77,6 +77,7 @@ void Sensors::update()
     float signal = this->diff_pres_pac >= 0 ? 1 : -1;
 
     this->fl_pac = signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
+    //this->fl_pac = this->fl_pac > 9.46 ? this->fl_pac :0;
     //this->fl_pac = this->fl_pac * 6; // Flux in l/min
     //this->fl_pac = this->const_flux * this->diff_pres_pac + 5.5;
     //this->fl_pac = this->diff_pres_pac;

@@ -13,7 +13,7 @@
 #include "sensors.h"
 #include "valves.h"
 
-#define Ts    0.001
+#define Ts    0.003
 #define BPM   15
 #define RATIO 0.66
 
@@ -27,11 +27,14 @@ volatile float plateau_ref;
 // Setting state times, in milliseconds
 volatile int INHALE_TO_EXHALE = 5000;
 volatile int EXHALE_TO_INHALE = 5000;
+volatile int PAUSE_TIME = 300;
+
 
 typedef enum {
     IDLE,
     INHALE,
     EXHALE,
+    PAUSE,
     TEST
 } state;
 
@@ -76,6 +79,8 @@ float prev_derror = 0;
 float delta_u = 0;
 float tau_aw = 1;
 float volume = 0;
+
+bool PEEP;
 // Custom functions
 
 // Timer callback
@@ -83,7 +88,7 @@ void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
   if (current_state == INHALE) {
     if (timer_counter >= INHALE_TO_EXHALE) {
-      current_state = EXHALE;
+      current_state = PAUSE;
       timer_counter = 0;
     } else {
       timer_counter++;
@@ -95,7 +100,17 @@ void IRAM_ATTR onTimer() {
     } else {
       timer_counter++;
     }
-  } 
+  }
+  else if (current_state == PAUSE){
+    if (timer_counter >= PAUSE_TIME) {
+      current_state = EXHALE;
+      timer_counter = 0;
+    } else {
+      timer_counter++;
+    }
+
+
+  }
   portEXIT_CRITICAL_ISR(&timerMux);
  
 }
@@ -292,6 +307,19 @@ void loop() {
       prev_ierror = ierror;
       prev_derror = derror;
       prev_pid_out = pid_out;
+      PEEP = false;
+      break;
+    case PAUSE:
+      valves.setINS_VALVE(0);
+      valves.setEXP_VALVE(0);
+
+
+      /*if (timer_counter <PAUSE_TIME){
+
+        valves.setEXP_VALVE((-100*timer_counter)/PAUSE_TIME+100);
+      }*/
+
+       
       break;
     case EXHALE:
       // Reset Inhale PID
@@ -308,11 +336,25 @@ void loop() {
 
       // Exhale valves configuration
       valves.setINS_VALVE(0);
-      valves.setEXP_VALVE(100);
+      //valves.setEXP_VALVE(100); 
+      if (sensors.getPRES_EXT_cm3H2O()<4){
+        PEEP = true;
+      }
+      if(PEEP){
+        
+        valves.setEXP_VALVE(0);
+      }
+      else{
+        valves.setEXP_VALVE(100);      
+      }
+
 
       pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
       break;
     case TEST:
+      
+    
+    
       valves.setINS_VALVE_PWM(ins);
       valves.setEXP_VALVE(0);
       if (flag) {
@@ -382,11 +424,11 @@ void loop() {
     } else if (part01.equals("PRINT_INS")) {
         print_valve_in = true;
     } else if (part01.equals("PRINT_ALL")) {
-      print_fl_int = true;
-      print_fl_pac = true;
-      print_pres_int = true;
-      print_pres_pac = true;
-      print_pres_ext = true;
+        print_fl_int = true;
+        print_fl_pac = true;
+        print_pres_int = true;
+        print_pres_pac = true;
+        print_pres_ext = true;
     } else if (part01.equals("PID")) {
         Kp = getValue(part02, ';', 0).toFloat();
         Ki = getValue(part02, ';', 1).toFloat();
@@ -400,8 +442,9 @@ void loop() {
         sensors.a3 = getValue(part02, ';', 2).toFloat();
     } else if (part01.equals("TEST")) {
         current_state = TEST;
-        print_fl_int = true;
-        print_fl_pac = true;
+
+        //print_fl_int = true;
+        //print_fl_pac = true;
         //print_pres_pac = true;
         //print_pres_int = true; 
         delay(3000);

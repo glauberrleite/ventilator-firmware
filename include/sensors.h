@@ -18,8 +18,12 @@ class Sensors {
         float pres_pac;
         // Internal system pressure
         float pres_int;
-
+        // External system pressure
         float pres_ext;
+
+        float filter_weight;        
+
+        float volume;
 
         // Poiseulle constant calculated from sensor parameters
         float const_flux;
@@ -29,7 +33,7 @@ class Sensors {
         float ads_bit_Voltage;
 
     public:
-        Sensors();
+        Sensors(float filter_weight = 0.2);
 
         void update();//Updates all sensors variables to all current sensor readings
 
@@ -47,10 +51,6 @@ class Sensors {
         float getPRES_EXT_cm3H2O();
         float getDIFF_PRES_PAC_cm3H2O();
         float getDIFF_PRES_PAC_PSI();
-
-        float a1;
-        float a2;
-        float a3;
 
     private:
         //Functions below are called in update() with the readings from corresponding ports set as parameters

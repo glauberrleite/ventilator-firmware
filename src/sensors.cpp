@@ -1,6 +1,6 @@
 #include "sensors.h"
 
-Sensors::Sensors()
+Sensors::Sensors(float filter_weight)
 {
   // I2C addresses for Analog-Digital Convertes
   this->ads1 = Adafruit_ADS1115(0x48);
@@ -29,14 +29,9 @@ Sensors::Sensors()
   this->pres_ext = 0;
   this->diff_pres_pac = 0;
 
-  //this->const_flux = 240.25103856;
-  //this->const_flux = 280;
   this->const_flux = 81.7140;
-  //this->const_flux = (M_PI * pow(6.2, 2)) * sqrt(2/1.225) * 60000;
 
-  this->a1 = 0.1513;
-  this->a2 = - 3.3424;
-  this->a3 = 41.657;
+  this->filter_weight = filter_weight;
 }
 
 void Sensors::update()
@@ -67,28 +62,16 @@ void Sensors::update()
     ads2_Voltage_ch2 = ads2_ch2 * ads_bit_Voltage;
     ads2_Voltage_ch3 = ads2_ch3 * ads_bit_Voltage;
  
-    this->fl_int = getFlowAWM720P(ads1_Voltage_ch0);
-    this->pres_int = getPressureASDX001PDAA5(ads2_Voltage_ch0);
-    this->pres_pac = getPressureASDX001PDAA5(ads2_Voltage_ch1);
-    this->pres_ext = getPressureASDX001PDAA5(ads2_Voltage_ch2);
+    this->fl_int = this->filter_weight * this->fl_int + (1 - this->filter_weight) * getFlowAWM720P(ads1_Voltage_ch0);
+    this->pres_int = this->filter_weight * this->pres_int + (1 - this->filter_weight) * getPressureASDX001PDAA5(ads2_Voltage_ch0);
+    this->pres_pac = this->filter_weight * this->pres_pac + (1 - this->filter_weight) * getPressureASDX001PDAA5(ads2_Voltage_ch1);
+    this->pres_ext = this->filter_weight * this->pres_ext + (1 - this->filter_weight) * getPressureASDX001PDAA5(ads2_Voltage_ch2);
     this->diff_pres_pac = getPressureASDX005NDAA5(ads2_Voltage_ch3);
 
-    //Deduced equation determines flux by means of differential pressure, corresponding sectional areas of veturi tube and gas density
+    // Calculating flow_pac based on diff_press
     float signal = this->diff_pres_pac >= 0 ? 1 : -1;
 
-    this->fl_pac = signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
-    //this->fl_pac = this->fl_pac > 9.46 ? this->fl_pac :0;
-    //this->fl_pac = this->fl_pac * 6; // Flux in l/min
-    //this->fl_pac = this->const_flux * this->diff_pres_pac + 5.5;
-    //this->fl_pac = this->diff_pres_pac;
-
-    //float signal = this->diff_pres_pac >= 0 ? 1 : -1;
-    //this->fl_pac = signal * (M_PI * pow(0.244, 2)) * sqrt((200000/4.425593) * abs(this->diff_pres_pac * 0.0360912));
-    //float vf = 0.1513 * (this->diff_pres_pac * this->diff_pres_pac * this->diff_pres_pac) - 3.3424 * (this->diff_pres_pac * this->diff_pres_pac) + 41.657 * this->diff_pres_pac;
-    
-    //float vf =  this->a1 * pow(this->getDIFF_PRES_PAC_PSI(), 3) + this->a2 * pow(this->getDIFF_PRES_PAC_PSI(), 2) + this->a3 * this->getDIFF_PRES_PAC_PSI();
-    //this->fl_pac = 0.8 * this->fl_pac + 0.2 * vf;
-    //this->fl_pac = signal * this->const_flux * sqrt(abs(this->diff_pres_pac) * 248.84);
+    this->fl_pac = this->filter_weight * this->fl_pac + (1 - this->filter_weight) * signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
 
 }
 

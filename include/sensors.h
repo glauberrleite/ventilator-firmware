@@ -33,7 +33,7 @@ class Sensors {
         float ads_bit_Voltage;
 
     public:
-        Sensors(float filter_weight = 0.2);
+        Sensors(float filter_weight = 0.25);
 
         void update();//Updates all sensors variables to all current sensor readings
 

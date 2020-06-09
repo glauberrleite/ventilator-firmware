@@ -27,7 +27,7 @@ volatile float plateau_ref;
 // Setting state times, in milliseconds
 volatile int INHALE_TO_EXHALE = 5000;
 volatile int EXHALE_TO_INHALE = 5000;
-volatile int PAUSE_TIME = 300;
+volatile int PAUSE_TIME = 600;
 
 
 typedef enum {
@@ -79,6 +79,9 @@ float prev_derror = 0;
 float delta_u = 0;
 float tau_aw = 1;
 float volume = 0;
+float peep_value = 0;
+bool offexpvalve = false;
+int timer_peep =1;
 
 
 bool PEEP;
@@ -98,8 +101,10 @@ void IRAM_ATTR onTimer() {
     if (timer_counter >= EXHALE_TO_INHALE) {
       current_state = INHALE;
       timer_counter = 0;
+      offexpvalve = false;
     } else {
       timer_counter++;
+      if (EXHALE_TO_INHALE - timer_counter <10) offexpvalve = true;
     }
   }
   else if (current_state == PAUSE){
@@ -216,6 +221,7 @@ void loop() {
   }
   
   if (print_fl_pac) {
+    //Serial.print(sensors.getFL_PAC()+9.46, 4);
     if (current_state == INHALE) {
       Serial.print(sensors.getFL_INT());
     } else {
@@ -249,7 +255,7 @@ void loop() {
   switch (current_state) {
     case INHALE:
  
-    if (timer_counter <= 100) valves.setEXP_VALVE(0);
+    
 
       // Setpoint
       /*if (timer_counter < (INHALE_TO_EXHALE/5)) {
@@ -259,7 +265,7 @@ void loop() {
       }*/
 
       // Pressure security condition
-      if (sensors.getPRES_PAC_cm3H2O() > 30) {
+      if (sensors.getPRES_INT_cm3H2O() > 30) {
         current_state = EXHALE;
         timer_counter = 0;
       }
@@ -268,8 +274,8 @@ void loop() {
 
       plateau_ref = plateau;
 
-      error = plateau_ref - sensors.getPRES_PAC_cm3H2O();
-      
+      //error = plateau_ref - sensors.getPRES_PAC_cm3H2O();
+      error = plateau_ref -sensors.getPRES_INT_cm3H2O();
       /* Proportional calc with constraints */
       pid_prop = Kp * error;
 
@@ -304,34 +310,33 @@ void loop() {
       delta_u = VALVE_INS - pid_out;
 
       valves.setINS_VALVE(VALVE_INS);
-      //valves.setEXP_VALVE(0);
+      valves.setEXP_VALVE(0);
 
       prev_error = error;
       prev_ierror = ierror;
       prev_derror = derror;
       prev_pid_out = pid_out;
       PEEP = false;
+      timer_peep =1;
       break;
     case PAUSE:
       //valves.setINS_VALVE(0);
       //valves.setEXP_VALVE(0);
 
       //FECHAR EXP SUAVEMENTE
-      if (timer_counter <=PAUSE_TIME){
+      if (timer_counter <=PAUSE_TIME/2){
         
         //valves.setEXP_VALVE((-50*timer_counter)/(PAUSE_TIME-1)+50);
-        valves.setINS_VALVE((-VALVE_INS*timer_counter*1.2/(PAUSE_TIME))+VALVE_INS);
-      }
-      //ABRIR EXP SUAVEMENTE
-      /*if (timer_counter >=PAUSE_TIME/2){
-        valves.setEXP_VALVE(200*timer_counter/PAUSE_TIME-100);
-      }
-      else{
+        //FECHA INS
+        valves.setINS_VALVE((-2*VALVE_INS*timer_counter*1.2/(PAUSE_TIME))+VALVE_INS);
+        //ABRE EXP
         valves.setEXP_VALVE(0);
-
-      }*/
-
-       
+        
+      }
+      else if (timer_counter >PAUSE_TIME/2) {
+        valves.setINS_VALVE(0);
+        valves.setEXP_VALVE((120*timer_counter/PAUSE_TIME)-20); 
+      }     
       break;
     case EXHALE:
       // Reset Inhale PID
@@ -349,36 +354,46 @@ void loop() {
       // Exhale valves configuration
       //valves.setINS_VALVE(0);
       //valves.setEXP_VALVE(100); 
-      if (sensors.getPRES_EXT_cm3H2O()<4){
-        PEEP = true;
-      }
-      if(PEEP){
-        //FECHAR SUAVE NA PEEP
-        if (true){          
-           valves.setEXP_VALVE(0);
-           
-        }
-        else{
-          valves.setEXP_VALVE(0);
-        }   
-      }
+
+      if (offexpvalve) valves.setEXP_VALVE(0);
       else{
-        //ABRIR SUAVE NO COMEÇO DA EXPIRAÇÃO
-        if (timer_counter<=EXHALE_TO_INHALE/2){
-          float x = 60*timer_counter/EXHALE_TO_INHALE;
-          valves.setEXP_VALVE(x);
-          //Serial.println(x);
+        if (sensors.getPRES_INT_cm3H2O()<=peep_value-peep_value*0.25){
+          PEEP = true;          
+        }
+        if(PEEP){
+          //FECHAR SUAVE NA PEEP
+          valves.setEXP_VALVE(0);
+          //valves.setEXP_VALVE(-10*timer_peep+100);
+          timer_peep++;
 
-          
-          
+
+          /*if (true){          
+            valves.setEXP_VALVE(70);
+            
+          }
+          else{
+            valves.setEXP_VALVE(0);
+          }   */
         }
         else{
-          valves.setEXP_VALVE(100);
-        }      
+          //ABRIR SUAVE NO COMEÇO DA EXPIRAÇÃO
+          if (timer_counter<=EXHALE_TO_INHALE/3){
+            //float x = 60*timer_counter/EXHALE_TO_INHALE;
+            //valves.setEXP_VALVE(x);
+            //Serial.println(x);
+            valves.setEXP_VALVE(100);
+
+            
+            
+          }
+          else{
+            valves.setEXP_VALVE(100);
+          }      
+        }
       }
 
-
-      pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
+      
+      //pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
       break;
     case TEST:
       delay(500);
@@ -467,10 +482,13 @@ void loop() {
     } else if (part01.equals("ALPHA")) {
         alpha = value;
     } else if (part01.equals("COEF")) {
-        sensors.a1 = getValue(part02, ';', 0).toFloat();
-        sensors.a2 = getValue(part02, ';', 1).toFloat();
-        sensors.a3 = getValue(part02, ';', 2).toFloat();
-    } else if (part01.equals("TEST")) {
+        //sensors.a1 = getValue(part02, ';', 0).toFloat();
+        //sensors.a2 = getValue(part02, ';', 1).toFloat();
+        //sensors.a3 = getValue(part02, ';', 2).toFloat();
+    }else if(part01.equals("PEEP")){
+      peep_value = part02.toFloat();
+    
+    }else if (part01.equals("TEST")) {
         current_state = TEST;
 
         //print_fl_int = true;

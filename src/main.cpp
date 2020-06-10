@@ -74,9 +74,10 @@ float tau_aw = 1;
 // PEEP control variables
 float peep_value = 0;
 bool offexpvalve = false;
-int timer_peep = 1;
+int timer_peep = 100;
 bool PEEP;
-
+float p1 = 0.1;
+float p2 = 3;
 // Custom functions
 
 // Timer callback
@@ -236,7 +237,7 @@ void loop() {
       // Calculating error from current reading to desired output
       pres_ref = pres_peak;
       //error = pres_peak_ref - sensors.getPRES_PAC_cm3H2O();
-      error = pres_ref -sensors.getPRES_INT_cm3H2O();
+      error = pres_ref - sensors.getPRES_INT_cm3H2O();
 
       // Proportional calc
       pid_prop = Kp * error;
@@ -288,7 +289,7 @@ void loop() {
         valves.setEXP_VALVE(0);
     
         PEEP = false;
-        timer_peep = 1;
+        timer_peep = 100;
         
       }
       else if (timer_counter > TRANSITION_TIME/2) {
@@ -316,14 +317,16 @@ void loop() {
 
       if (offexpvalve) valves.setEXP_VALVE(0);
       else{
-        if (sensors.getPRES_INT_cm3H2O() <= peep_value-peep_value*0.25){
+        if (sensors.getPRES_INT_cm3H2O() <= peep_value+peep_value*p1){
           PEEP = true;          
         }
         if(PEEP){
           //FECHAR SUAVE NA PEEP
-          valves.setEXP_VALVE(0);
-          //valves.setEXP_VALVE(-10*timer_peep+100);
-          timer_peep++;
+          //valves.setEXP_VALVE(0);
+          //
+          timer_peep= timer_peep-p2;
+          valves.setEXP_VALVE(timer_peep);
+          
 
         }
         else{
@@ -371,7 +374,10 @@ void loop() {
         alpha = value;
     } else if(part01.equals("PEEP")){
       peep_value = value;
-    } else {
+    } else if (part01.equals("SET_PEEP")) {
+        p1 = getValue(part02, ';', 0).toFloat();
+        p2 = getValue(part02, ';', 1).toFloat(); 
+    }else {
       valves.setEXP_VALVE(value);
     }
   

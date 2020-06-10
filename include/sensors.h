@@ -21,9 +21,7 @@ class Sensors {
         // External system pressure
         float pres_ext;
 
-        float filter_weight;        
-
-        float volume;
+        float filter_weight;
 
         // Poiseulle constant calculated from sensor parameters
         float const_flux;
@@ -33,9 +31,11 @@ class Sensors {
         float ads_bit_Voltage;
 
     public:
-        Sensors(float filter_weight = 0.25);
+        Sensors(float filter_weight = 0.2);
 
         void update();//Updates all sensors variables to all current sensor readings
+
+        void setFilterWeight(float weight);
 
         float getFL_INT();//Returns last updated value from FLow sensor in SLPM 
         float getFL_PAC();

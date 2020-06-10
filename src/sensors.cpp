@@ -75,6 +75,13 @@ void Sensors::update()
 
 }
 
+void Sensors::setFilterWeight(float weight) {
+  weight = weight > 1 ? 1 : weight;
+  weight = weight < 0 ? 0 : weight;
+
+  filter_weight = weight;
+}
+
 float Sensors::getFlowAWM720P(float v)
 {
   // Readings from AWM720P varies from 1V to 5V
@@ -146,7 +153,8 @@ float Sensors::getFL_INT()
 
 float Sensors::getFL_PAC()
 {
-  return this->fl_pac;
+  // fl_pac sensor have a bias
+  return this->fl_pac + 9.46;
 }
 
 float Sensors::getPRES_PAC_PSI()

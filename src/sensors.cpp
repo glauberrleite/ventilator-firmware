@@ -72,7 +72,6 @@ void Sensors::update()
     float signal = this->diff_pres_pac >= 0 ? 1 : -1;
 
     this->fl_pac = this->filter_weight * this->fl_pac + (1 - this->filter_weight) * signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
-
 }
 
 void Sensors::setFilterWeight(float weight) {

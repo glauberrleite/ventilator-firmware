@@ -24,6 +24,7 @@ Valves valves;
 volatile float pres_peak = 10;
 volatile float pres_ref;
 volatile float volume_ref = 30;
+float flow;
 float volume;
 
 // Setting state times, in milliseconds
@@ -37,7 +38,8 @@ typedef enum {
     INHALE,
     TRANSITION,
     PLATEAU,
-    EXHALE
+    EXHALE,
+    TEST
 } state;
 
 volatile state current_state;
@@ -52,9 +54,9 @@ float VALVE_INS = 0;
 float pres_init = 0;
 
 // PID variables
-float Kp = 5.2;
-float Ki = 75;
-float Kd = 1.25;
+float Kp = 25;
+float Ki = 2;
+float Kd = 2;
 
 float alpha = 0.1;
 float pid_out = 0;
@@ -177,13 +179,24 @@ void setup() {
   INHALE_TO_EXHALE = calculateInhale(BPM, RATIO);
   EXHALE_TO_INHALE = calculateExhale(BPM, RATIO);
   tau_aw = sqrt(1/(Ki * Kd));
+  flow = 0;
   volume = 0;
 }
 
+float ins = 0;
+bool limit = false;
 void loop() {
 
   // Read sensors 
   sensors.update();
+  
+  // calculate flow and volume
+  if (current_state == EXHALE) {
+    flow = sensors.getFL_PAC();
+  } else {
+    flow = sensors.getFL_INT();
+  }
+  volume += flow * (Ts * 60) * 0.001; // Volume in mL
 
   // Printing variables
   Serial.print(current_state);
@@ -201,18 +214,16 @@ void loop() {
   Serial.print(sensors.getPRES_PAC_cm3H2O());
   Serial.print(",");
   
-  if (current_state == INHALE) {
-    Serial.print(sensors.getFL_INT());
-  } else {
-    Serial.print(sensors.getFL_PAC(), 4);
-  }
+  Serial.print(flow);
+  Serial.print(",");
+
+  Serial.print(volume);
   Serial.print(",");
   
   Serial.print(VALVE_INS);
   Serial.print(",");
   
   Serial.print(pres_ref);
-  
   //Serial.print(ins);
   //Serial.print(pid_prop);
   //Serial.print("\t");
@@ -236,8 +247,7 @@ void loop() {
 
       // Calculating error from current reading to desired output
       pres_ref = pres_peak;
-      //error = pres_peak_ref - sensors.getPRES_PAC_cm3H2O();
-      error = pres_ref - sensors.getPRES_INT_cm3H2O();
+      error = pres_ref - sensors.getPRES_PAC_cm3H2O();
 
       // Proportional calc
       pid_prop = Kp * error;
@@ -256,7 +266,7 @@ void loop() {
       delta_ins = pid_out - prev_pid_out;     
       
       pid_out = delta_ins > 5 ? prev_pid_out + 5 : pid_out;
-      pid_out = delta_ins < -5 ? prev_pid_out - 5 : pid_out;
+      pid_out = delta_ins < - 5 ? prev_pid_out - 5 : pid_out;
 
       // // Control action limits
       VALVE_INS = pid_out;      
@@ -315,26 +325,31 @@ void loop() {
       //valves.setINS_VALVE(0);
       //valves.setEXP_VALVE(100); 
 
-      if (offexpvalve) valves.setEXP_VALVE(0);
-      else{
-        if (sensors.getPRES_INT_cm3H2O() <= peep_value+peep_value*p1){
+      if (offexpvalve)
+        valves.setEXP_VALVE(0);
+      else {
+        if (sensors.getPRES_PAC_cm3H2O() <= peep_value + peep_value * p1){
           PEEP = true;          
         }
         if(PEEP){
           //FECHAR SUAVE NA PEEP
           //valves.setEXP_VALVE(0);
           //
-          timer_peep= timer_peep-p2;
+          timer_peep = timer_peep-p2;
           valves.setEXP_VALVE(timer_peep);
           
 
-        }
-        else{
+        } else{
             valves.setEXP_VALVE(100);    
         }
       }
       
       //pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
+      break;
+    case TEST:
+      VALVE_INS = ins;
+      valves.setINS_VALVE_PWM(ins);
+      ins++;
       break;
     default: break;
   }
@@ -377,7 +392,9 @@ void loop() {
     } else if (part01.equals("SET_PEEP")) {
         p1 = getValue(part02, ';', 0).toFloat();
         p2 = getValue(part02, ';', 1).toFloat(); 
-    }else {
+    } else if (part01.equals("TEST")) {
+      current_state = TEST;
+    } else {
       valves.setEXP_VALVE(value);
     }
   

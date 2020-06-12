@@ -26,12 +26,12 @@ void Valves::setINS_VALVE(float level)
 
     int value;
     if (level > 2) {
-        float z = (level - 62)/32;
+        float z = (level - 36)/35;
         //value = int(-12 * pow(z, 4) + 31 * pow(z, 3) + 43 * pow(z, 2) + 43 * z + 780);
         //value = int(-33 * pow(z, 10) + 11 * pow(z, 9) + 72 * pow(z, 8) - 110 * pow(z, 7) - 28 * pow(z, 6) + 210 * pow(z, 5) - 2.2 * pow(z, 4) - 110 * pow(z, 3) + 16 * pow(z, 2) + 71 * z + 790);
-        value = 17 * pow(z, 3) + 37 * pow(z, 2) + 60 * z + 800;
+        value = 31 * pow(z, 5) - 74 * pow(z, 4) + 28 * pow(z, 3) + 35 * pow(z, 2) + 39 * z + 720;
     } else {
-        value = 670;
+        value = 500;
     }
 
     //int value = int(3*level + 650); // [0,100] signal convertion to [650,950] pwm

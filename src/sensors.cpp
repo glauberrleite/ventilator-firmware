@@ -5,6 +5,9 @@ Sensors::Sensors(float filter_weight)
   // I2C addresses for Analog-Digital Convertes
   this->ads1 = Adafruit_ADS1115(0x48);
   this->ads2 = Adafruit_ADS1115(0x49);
+  this->measflow = SFM3000wedo(64);
+
+  this->measflow.init();
   
   // ADS1115 Analog Digital Converter configs
   this->ads1.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
@@ -28,10 +31,12 @@ Sensors::Sensors(float filter_weight)
   this->pres_int = 0;
   this->pres_ext = 0;
   this->diff_pres_pac = 0;
+  this->venturi_pac =0;
 
   this->const_flux = 81.7140;
 
   this->filter_weight = filter_weight;
+  this->bias = 0;
 }
 
 void Sensors::update()
@@ -70,8 +75,9 @@ void Sensors::update()
 
     // Calculating flow_pac based on diff_press
     float signal = this->diff_pres_pac >= 0 ? 1 : -1;
-
-    this->fl_pac = this->filter_weight * this->fl_pac + (1 - this->filter_weight) * signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
+    this->venturi_pac = this->filter_weight * this->venturi_pac + (1 - this->filter_weight) * signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
+    this->fl_pac = this->filter_weight * this->fl_pac + (1 - this->filter_weight) * getFlowSFM3300(); // Flux in m3/s
+    
 }
 
 void Sensors::setFilterWeight(float weight) {
@@ -153,8 +159,15 @@ float Sensors::getFL_INT()
 float Sensors::getFL_PAC()
 {
   // fl_pac sensor have a bias
-  return this->fl_pac + 9.46;
+  return this->fl_pac;
 }
+
+float Sensors::getVenturi_PAC()
+{
+  // venturi_pac sensor have a bias
+  return this->venturi_pac + this->bias;
+}
+
 
 float Sensors::getPRES_PAC_PSI()
 {
@@ -196,4 +209,9 @@ float Sensors::getDIFF_PRES_PAC_PSI()
 {
   // Need to convert to psi
   return this->diff_pres_pac * 0.0360912;
+}
+
+float Sensors::getFlowSFM3300()
+{
+  return (measflow.getvalue()-32768)/120.0;
 }

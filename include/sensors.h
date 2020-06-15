@@ -1,6 +1,7 @@
 #include <math.h>
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
+#include "sfm3000wedo.h"
 
 #define   ADC_16BIT_MAX     65536
 #define   M_PI              3.14159265358979323846
@@ -23,14 +24,19 @@ class Sensors {
 
         float filter_weight;
 
+        float venturi_pac;
+
         // Poiseulle constant calculated from sensor parameters
         float const_flux;
 
         Adafruit_ADS1115 ads1;
         Adafruit_ADS1115 ads2;
+        SFM3000wedo measflow;
         float ads_bit_Voltage;
 
     public:
+        float bias;
+
         Sensors(float filter_weight = 0.75);
 
         void update();//Updates all sensors variables to all current sensor readings
@@ -39,13 +45,14 @@ class Sensors {
 
         float getFL_INT();//Returns last updated value from FLow sensor in SLPM 
         float getFL_PAC();
-                
-        //Functions below returns latest updated values from Pressure sensors in PSI
+        float getVenturi_PAC();
+               
+        // Functions below returns latest updated values from Pressure sensors in PSI
         float getPRES_PAC_PSI();
         float getPRES_INT_PSI();
         float getPRES_EXT_PSI();
         
-        //Functions below returns latest updated values from Pressure sensors in cm3H2O
+        // Functions below returns latest updated values from Pressure sensors in cm3H2O
         float getPRES_PAC_cm3H2O();
         float getPRES_INT_cm3H2O();
         float getPRES_EXT_cm3H2O();
@@ -59,5 +66,6 @@ class Sensors {
         float getPressureASDX(float v, float p_min, float p_max);//minimum and maximum pressures are determined for each sensor by datasheet
         float getPressureASDX001PDAA5(float v);//datasheet determines [-1,1] PSI reading range
         float getPressureASDX005NDAA5(float v);//datasheet determines [-5,5] inH2O reading range
+        float getFlowSFM3300(); //Sensirion sensor
 
 };

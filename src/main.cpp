@@ -191,11 +191,12 @@ void loop() {
   sensors.update();
   
   // calculate flow and volume
-  if (current_state == EXHALE) {
-    flow = sensors.getFL_PAC();
+  flow = sensors.getFL_PAC();
+  /*if (current_state == EXHALE) {
+    flow = -sensors.getFL_PAC();
   } else {
     flow = sensors.getFL_INT();
-  }
+  }*/
   volume += flow * (Ts * 60) * 0.001; // Volume in mL
 
   // Printing variables
@@ -221,6 +222,9 @@ void loop() {
   Serial.print(",");
   
   Serial.print(VALVE_INS);
+  Serial.print(",");
+
+  Serial.print(sensors.getVenturi_PAC());
   Serial.print(",");
   
   Serial.print(pres_ref);
@@ -394,6 +398,8 @@ void loop() {
         p2 = getValue(part02, ';', 1).toFloat(); 
     } else if (part01.equals("TEST")) {
       current_state = TEST;
+    } else if (part01.equals("BIAS")) {
+      sensors.bias = value;
     } else {
       valves.setEXP_VALVE(value);
     }

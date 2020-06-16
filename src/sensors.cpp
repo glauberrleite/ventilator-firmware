@@ -68,9 +68,9 @@ void Sensors::update()
     ads2_Voltage_ch3 = ads2_ch3 * ads_bit_Voltage;
  
     this->fl_int = this->filter_weight * this->fl_int + (1 - this->filter_weight) * getFlowAWM720P(ads1_Voltage_ch0);
-    this->pres_int = this->filter_weight * this->pres_int + (1 - this->filter_weight) * getPressureASDX001PDAA5(ads2_Voltage_ch0);
-    this->pres_pac = this->filter_weight * this->pres_pac + (1 - this->filter_weight) * getPressureASDX001PDAA5(ads2_Voltage_ch1);
-    this->pres_ext = this->filter_weight * this->pres_ext + (1 - this->filter_weight) * getPressureASDX001PDAA5(ads2_Voltage_ch2);
+    this->pres_pac = this->filter_weight * this->pres_pac + (1 - this->filter_weight) * getPressureNewASDX001PDAA5(ads2_Voltage_ch0);
+    this->pres_int = this->filter_weight * this->pres_int + (1 - this->filter_weight) * getPressureNewASDX001PDAA5(ads2_Voltage_ch1);    
+    this->pres_ext = this->filter_weight * this->pres_ext + (1 - this->filter_weight) * getPressureNewASDX001PDAA5(ads2_Voltage_ch2);
     this->diff_pres_pac = getPressureASDX005NDAA5(ads2_Voltage_ch3);
 
     // Calculating flow_pac based on diff_press
@@ -149,6 +149,14 @@ float Sensors::getPressureASDX001PDAA5(float v)
 float Sensors::getPressureASDX005NDAA5(float v)
 {  
   return this->getPressureASDX(v, -5, 5);
+}
+
+float Sensors::getPressureNewASDX001PDAA5(float v)
+{
+  v = v < 0.5 ? 0.5 : v;
+  v = v > 4.5 ? 4.5 : v;
+
+  return (v - 2.5) / 2;
 }
 
 float Sensors::getFL_INT()

@@ -66,6 +66,7 @@ class Sensors {
         float getPressureASDX(float v, float p_min, float p_max);//minimum and maximum pressures are determined for each sensor by datasheet
         float getPressureASDX001PDAA5(float v);//datasheet determines [-1,1] PSI reading range
         float getPressureASDX005NDAA5(float v);//datasheet determines [-5,5] inH2O reading range
+        float getPressureNewASDX001PDAA5(float v);//datasheet determines [-1,1] PSI reading range
         float getFlowSFM3300(); //Sensirion sensor
 
 };

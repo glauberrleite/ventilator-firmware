@@ -31,6 +31,7 @@ float volume;
 volatile int INHALE_TO_EXHALE = 5000;
 volatile int EXHALE_TO_INHALE = 5000;
 volatile int TRANSITION_TIME = 300;
+volatile int PLATEAU_TIME = 2000;
 
 
 typedef enum {
@@ -80,19 +81,40 @@ int timer_peep = 100;
 bool PEEP;
 float p1 = 0.1;
 float p2 = 3;
+bool ins_pause = false;
+bool exp_pause = false;
+
 // Custom functions
 
 // Timer callback
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
   if (current_state == INHALE) {
-    if (timer_counter >= INHALE_TO_EXHALE) {
+    if (!ins_pause){ /// SE O BOTÃO INSP NÃO TIVER SIDO PRESSIONADO (CONDIÇÃO NORMAL)
+      if (timer_counter >= INHALE_TO_EXHALE) {
+      current_state = TRANSITION;//VAI PARA A TRANSIÇÃO INS - EXP
+      timer_counter = 0;
+      }else {
+        timer_counter++;
+      }
+    }else{/// SE O BOTÃO INSP TIVER SIDO PRESSIONADO
+      if (timer_counter >= INHALE_TO_EXHALE) {
+      current_state = PLATEAU;//VAI PARA A TRANSIÇÃO PLATEAU
+      timer_counter = 0;
+      }else {
+        timer_counter++;
+      }
+    }  
+
+  }else if (current_state == PLATEAU){
+    if (timer_counter >= PLATEAU_TIME){
       current_state = TRANSITION;
       timer_counter = 0;
-    } else {
+      ins_pause = false;
+    }else{
       timer_counter++;
     }
-  } else if (current_state == TRANSITION){
+  }else if (current_state == TRANSITION){
     if (timer_counter >= TRANSITION_TIME) {
       current_state = EXHALE;
       timer_counter = 0;
@@ -244,7 +266,7 @@ void loop() {
   switch (current_state) {
     case INHALE:
       // Pressure security condition
-      if (sensors.getPRES_INT_cm3H2O() > 30) {
+      if (sensors.getPRES_PAC_cm3H2O() > 30) {
         current_state = EXHALE;
         timer_counter = 0;
       }
@@ -252,38 +274,28 @@ void loop() {
       // Calculating error from current reading to desired output
       pres_ref = pres_peak;
       error = pres_ref - sensors.getPRES_PAC_cm3H2O();
-
       // Proportional calc
       pid_prop = Kp * error;
-
       // Integrative calc with anti-windup filter (coef tau_aw)
       pid_int = pid_int + Ts * (Ki * error + (Kp/tau_aw) * delta_u);
-
       // Derivative calc with derivative filter (coef alpha)
       derror = (1 - alpha) * prev_error + alpha * derror;
       pid_der = Kd * derror;
-
       // Control action computation (PID)
       pid_out = pid_prop + pid_int + pid_der;
-
       // Control effort constraints
-      delta_ins = pid_out - prev_pid_out;     
-      
+      delta_ins = pid_out - prev_pid_out;      
       pid_out = delta_ins > 5 ? prev_pid_out + 5 : pid_out;
       pid_out = delta_ins < - 5 ? prev_pid_out - 5 : pid_out;
-
       // // Control action limits
       VALVE_INS = pid_out;      
       VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
       VALVE_INS = VALVE_INS < 0 ? 0 : VALVE_INS;
-
       // Anti-windup component for next iteration
-      delta_u = VALVE_INS - pid_out;
-      
+      delta_u = VALVE_INS - pid_out;      
       // Applying control action to actuators
       valves.setINS_VALVE(VALVE_INS);
       valves.setEXP_VALVE(0);
-
       // Saving variables for next iteration
       prev_error = error;
       prev_derror = derror;
@@ -400,6 +412,8 @@ void loop() {
       current_state = TEST;
     } else if (part01.equals("BIAS")) {
       sensors.bias = value;
+    } else if (part01.equals("INS_HOLD")) {
+      ins_pause = true;
     } else {
       valves.setEXP_VALVE(value);
     }

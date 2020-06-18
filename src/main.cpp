@@ -30,7 +30,7 @@ float volume;
 // Setting state times, in milliseconds
 volatile int time_inhale_to_exhale = 5000;
 volatile int time_exhale_to_inhale = 5000;
-volatile int time_transition = 150;
+volatile int time_transition = 200;
 volatile int time_plateau = 2000;
 
 
@@ -52,15 +52,15 @@ hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 // Print debug variables
-float VALVE_INS = 0;
-float VALVE_EXP = 0;
+volatile float VALVE_INS = 0;
+volatile float VALVE_EXP = 0;
 
 float pres_init = 0;
 
 // Ins PID variables
-float Kp = 5;
-float Ki = 0.8;
-float Kd = 2;
+float Kp = 8;
+float Ki = 0.08;
+float Kd = 0.1;
 
 float alpha = 0.1;
 float pid_out = 0;
@@ -90,8 +90,7 @@ float PREV_VALVE_EXP = 100;
 bool offexpvalve = false;
 int timer_peep = 100;
 bool PEEP;
-float p1 = 0.1;
-float p2 = 3;
+float p1 = 0;
 bool ins_pause = false;
 bool exp_pause = false;
 
@@ -138,8 +137,9 @@ void IRAM_ATTR onTimer() {
       timer_counter = 0;
       offexpvalve = false;
     } else {
+      if (timer_counter ==0) VALVE_EXP = 100;
       timer_counter++;
-      //if (time_exhale_to_inhale - timer_counter <10) offexpvalve = true;
+      
     }
   } else if (current_state == EXHALE_TO_INHALE) {
     if (timer_counter >= 10 && flag) {
@@ -306,24 +306,23 @@ void loop() {
       // Control effort constraints
       delta_ins = pid_out - prev_pid_out;      
       pid_out = delta_ins > 5 ? prev_pid_out + 5 : pid_out;
-      pid_out = delta_ins < - 5 ? prev_pid_out - 5 : pid_out;
+      pid_out = delta_ins < - 1 ? prev_pid_out - 1 : pid_out;
       // // Control action limits
       VALVE_INS = pid_out;      
       VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
       VALVE_INS = VALVE_INS < 0 ? 0 : VALVE_INS;
       // Anti-windup component for next iteration
-      delta_u = VALVE_INS - pid_out;      
-      // Applying control action to actuators
-      valves.setINS_VALVE(VALVE_INS);
-      valves.setEXP_VALVE(VALVE_EXP);
+      //delta_u = VALVE_INS - pid_out;
+      delta_u = VALVE_INS - (prev_pid_out + delta_ins);
+
       // Saving variables for next iteration
       prev_error = error;
       prev_derror = derror;
       prev_pid_out = pid_out;
       break;
     case PLATEAU:
-      valves.setINS_VALVE(0);
-      valves.setEXP_VALVE(0);
+      VALVE_INS = 0;
+      VALVE_EXP = 0;
       break;
     case INHALE_TO_EXHALE:
       // Cleaning control variables
@@ -332,33 +331,34 @@ void loop() {
       pid_der = 0;
       prev_error = 0;
       prev_pid_out = 100;
-      VALVE_INS = 0;
-      VALVE_EXP = 0;
+      
+     
       PREV_VALVE_EXP = 100;
       delta_u = 0;
 
       //FECHAR EXP SUAVEMENTE
-      if (timer_counter <= 2 * time_transition/3){
+      if (timer_counter <=  time_transition/2){
         
         //valves.setEXP_VALVE((-50*timer_counter)/(time_transition-1)+50);
         //FECHA INS
-        valves.setINS_VALVE((-1.5*VALVE_INS*timer_counter*1.2/(time_transition))+VALVE_INS);
+        VALVE_INS = (-2*VALVE_INS*timer_counter*1.2/(time_transition))+VALVE_INS;        
         //ABRE EXP
-        valves.setEXP_VALVE(0);
-    
+        VALVE_EXP = 0;    
         PEEP = false;
         timer_peep = 100;
         
       }
       else {
-        valves.setINS_VALVE(0);
-        valves.setEXP_VALVE((120*timer_counter/time_transition)-20); 
+        VALVE_INS = 0;
+        //VALVE_EXP = 100;
+        VALVE_EXP = (120*timer_counter/time_transition)-20;
       }
 
       // New pressure reference
       pres_ref = peep_value;
       break;
     case EXHALE:
+   
       /*if (steady_peep) {
         VALVE_EXP = 0;
         
@@ -409,28 +409,11 @@ void loop() {
       //valves.setINS_VALVE(0);
       //valves.setEXP_VALVE(100); 
 
-      if (offexpvalve)
-        VALVE_EXP = 0;
-      else {
-        if (sensors.getPRES_PAC_cm3H2O() <= peep_value + peep_value * p1){
-          PEEP = true;          
-        }
-        if(PEEP){
-          //FECHAR SUAVE NA PEEP
-          //valves.setEXP_VALVE(0);
-          //
-          timer_peep = timer_peep-p2;
-          VALVE_EXP = timer_peep;
-          VALVE_EXP = VALVE_EXP > 100 ? 100 : VALVE_EXP;
-          VALVE_EXP = VALVE_EXP < 0 ? 0 : VALVE_EXP;
-          
 
-        } else {
-          VALVE_EXP = 100;   
-        }
+      VALVE_INS = 0;
+      VALVE_EXP = VALVE_EXP-p1;
         
-        valves.setEXP_VALVE(VALVE_EXP);
-      }
+    
       
       //pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
       break;
@@ -453,11 +436,13 @@ void loop() {
       break;
     case TEST:
       VALVE_INS = ins;
-      valves.setINS_VALVE_PWM(ins);
       ins++;
       break;
     default: break;
   }
+
+  valves.setINS_VALVE(VALVE_INS);
+  valves.setEXP_VALVE(VALVE_EXP);
   
   // Receiving commands via serial
   if (Serial.available() > 0) {
@@ -500,8 +485,8 @@ void loop() {
     } else if(part01.equals("PEEP")){
       peep_value = value;
     } else if (part01.equals("SET_PEEP")) {
-        p1 = getValue(part02, ';', 0).toFloat();
-        p2 = getValue(part02, ';', 1).toFloat(); 
+        p1 = value;
+        
     } else if (part01.equals("TEST")) {
       current_state = TEST;
     } else if (part01.equals("BIAS")) {

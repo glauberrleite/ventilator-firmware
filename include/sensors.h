@@ -37,7 +37,7 @@ class Sensors {
     public:
         float bias;
 
-        Sensors(float filter_weight = 0.75);
+        Sensors(float filter_weight = 0.5);
 
         void update();//Updates all sensors variables to all current sensor readings
 

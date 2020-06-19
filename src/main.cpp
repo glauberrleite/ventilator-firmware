@@ -378,7 +378,7 @@ void loop() {
       }
 
       // Tunning PID Kp for next cycle
-      //Kp = Kp + 0.1 * (pres_peak - last_ins_pressure);
+      Kp = Kp + 0.1 * (pres_peak - last_ins_pressure);
 
       break;
     case EXHALE:

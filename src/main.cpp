@@ -57,6 +57,9 @@ volatile float VALVE_EXP = 0;
 
 float pres_init = 0;
 
+unsigned long prev_timestamp;
+unsigned long new_timestamp;
+
 // Ins PID variables
 float Kp = 8;
 float Ki = 0.08;
@@ -93,6 +96,9 @@ bool PEEP;
 float p1 = 0;
 bool ins_pause = false;
 bool exp_pause = false;
+float last_ins_pressure;
+float peep_error = 0;
+bool first_time = true;
 
 // Custom functions
 
@@ -224,23 +230,28 @@ void setup() {
   peep_tau_aw = sqrt(1/(peep_Ki * peep_Kd));
   flow = 0;
   volume = 0;
+
+  prev_timestamp = millis();
 }
 
-float ins = 0;
-bool limit = false;
 void loop() {
-
+  long init_loop_timestamp = millis();
   // Read sensors 
   sensors.update();
   
   // calculate flow and volume
   flow = sensors.getFL_PAC();
+  new_timestamp = millis();
+  long delta_timestamp = new_timestamp - prev_timestamp;
+  if (delta_timestamp < 0) {
+    delta_timestamp = Ts;
+  }
   /*if (current_state == EXHALE) {
     flow = -sensors.getFL_PAC();
   } else {
     flow = sensors.getFL_INT();
   }*/
-  volume += (flow * 100 / 6) *  Ts; // Volume in mL
+  volume += (flow * 100 / 6) *  (delta_timestamp * 1000); // Volume in mL
 
   // Printing variables
   Serial.print(current_state);
@@ -356,6 +367,19 @@ void loop() {
 
       // New pressure reference
       pres_ref = peep_value;
+      last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
+
+      // Tunning exp valve adjustiment component
+      if (first_time) {
+        p1  = 0.7116 - 0.03798*last_ins_pressure + 0.05375*peep_value - 0.001111*pow(peep_value,2) + 0.005175*last_ins_pressure*peep_value-0.02419*pow(peep_value, 2) + 0.001014*pow(last_ins_pressure, 2)*peep_value - 0.004439*last_ins_pressure*pow(peep_value, 2) + 0.007044 * pow(peep_value, 3);
+        first_time = false;
+      } else {
+        p1 = p1 + 0.01 * peep_error;
+      }
+
+      // Tunning PID Kp for next cycle
+      //Kp = Kp + 0.1 * (pres_peak - last_ins_pressure);
+
       break;
     case EXHALE:
    
@@ -409,11 +433,9 @@ void loop() {
       //valves.setINS_VALVE(0);
       //valves.setEXP_VALVE(100); 
 
-
       VALVE_INS = 0;
       VALVE_EXP = VALVE_EXP-p1;
-        
-    
+      peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
       
       //pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
       break;
@@ -433,10 +455,6 @@ void loop() {
 
       pres_ref = pres_peak;
 
-      break;
-    case TEST:
-      VALVE_INS = ins;
-      ins++;
       break;
     default: break;
   }
@@ -468,6 +486,7 @@ void loop() {
         time_exhale_to_inhale = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
     } else if (part01.equals("PEAK")) {
         pres_peak = value;
+        first_time = true;
     } else if (part01.equals("PID")) {
         Kp = getValue(part02, ';', 0).toFloat();
         Ki = getValue(part02, ';', 1).toFloat();
@@ -484,9 +503,9 @@ void loop() {
         alpha = value;
     } else if(part01.equals("PEEP")){
       peep_value = value;
+      first_time = true;
     } else if (part01.equals("SET_PEEP")) {
-        p1 = value;
-        
+        p1 = value;        
     } else if (part01.equals("TEST")) {
       current_state = TEST;
     } else if (part01.equals("BIAS")) {
@@ -498,5 +517,10 @@ void loop() {
     }
   
   }
-  delay(Ts * 1000); // Ts is in seconds, but delay is in milliseconds
+
+  // Assert realtime iteration delay
+  long end_loop_timestamp = millis();
+  if (end_loop_timestamp - init_loop_timestamp < (Ts * 1000)) {
+    delay(Ts * 1000 - (end_loop_timestamp - init_loop_timestamp)); // Ts is in seconds, but delay is in milliseconds
+  }
 }

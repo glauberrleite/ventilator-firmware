@@ -61,7 +61,7 @@ unsigned long prev_timestamp;
 unsigned long new_timestamp;
 
 // Ins PID variables
-float Kp = 8;
+float Kp = 5;
 float Ki = 0.08;
 float Kd = 0.1;
 
@@ -84,16 +84,9 @@ float tau_aw = 1;
 float peep_value = 0;
 bool steady_peep = false;
 
-float peep_Kp = 25;
-float peep_Ki = 2;
-float peep_Kd = 2;
-float peep_tau_aw = 1;
-float PREV_VALVE_EXP = 100;
-
 bool offexpvalve = false;
-int timer_peep = 100;
-bool PEEP;
 float p1 = 0;
+
 bool ins_pause = false;
 bool exp_pause = false;
 float last_ins_pressure;
@@ -227,7 +220,6 @@ void setup() {
   time_inhale_to_exhale = calculateInhale(BPM, RATIO);
   time_exhale_to_inhale = calculateExhale(BPM, RATIO);
   tau_aw = sqrt(1/(Ki * Kd));
-  peep_tau_aw = sqrt(1/(peep_Ki * peep_Kd));
   flow = 0;
   volume = 0;
 
@@ -242,16 +234,14 @@ void loop() {
   // calculate flow and volume
   flow = sensors.getFL_PAC();
   new_timestamp = millis();
-  long delta_timestamp = new_timestamp - prev_timestamp;
+  long  delta_timestamp = new_timestamp - prev_timestamp;
   if (delta_timestamp < 0) {
     delta_timestamp = Ts;
   }
-  /*if (current_state == EXHALE) {
-    flow = -sensors.getFL_PAC();
-  } else {
-    flow = sensors.getFL_INT();
-  }*/
-  volume += (flow * 100 / 6) *  (delta_timestamp * 1000); // Volume in mL
+  //volume  = delta_timestamp;
+  if (current_state != IDLE && !((flow < 0) && (flow > -1))) 
+    volume += (flow / 60) *  (delta_timestamp); // Volume in mL
+  prev_timestamp = new_timestamp;
 
   // Printing variables
   Serial.print(current_state);
@@ -282,15 +272,6 @@ void loop() {
   Serial.print(",");
   
   Serial.print(pres_ref);
-  //Serial.print(ins);
-  //Serial.print(pid_prop);
-  //Serial.print("\t");
-
-  //Serial.print(pid_int);
-  //Serial.print("\t");
-
-  //Serial.print(pid_der);
-  //Serial.print("\t");
 
   Serial.println();
 
@@ -299,7 +280,7 @@ void loop() {
     case INHALE:
       // Pressure security condition
       if (sensors.getPRES_PAC_cm3H2O() > 30) {
-        current_state = EXHALE;
+        current_state = INHALE_TO_EXHALE;
         timer_counter = 0;
       }
 
@@ -323,7 +304,6 @@ void loop() {
       VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
       VALVE_INS = VALVE_INS < 0 ? 0 : VALVE_INS;
       // Anti-windup component for next iteration
-      //delta_u = VALVE_INS - pid_out;
       delta_u = VALVE_INS - (prev_pid_out + delta_ins);
 
       // Saving variables for next iteration
@@ -342,9 +322,7 @@ void loop() {
       pid_der = 0;
       prev_error = 0;
       prev_pid_out = 100;
-      
      
-      PREV_VALVE_EXP = 100;
       delta_u = 0;
 
       //FECHAR EXP SUAVEMENTE
@@ -354,9 +332,7 @@ void loop() {
         //FECHA INS
         VALVE_INS = (-2*VALVE_INS*timer_counter*1.2/(time_transition))+VALVE_INS;        
         //ABRE EXP
-        VALVE_EXP = 0;    
-        PEEP = false;
-        timer_peep = 100;
+        VALVE_EXP = 0;
         
       }
       else {
@@ -378,66 +354,16 @@ void loop() {
       }
 
       // Tunning PID Kp for next cycle
-      Kp = Kp + 0.1 * (pres_peak - last_ins_pressure);
+      Kp = Kp + 0.08 * (pres_peak - last_ins_pressure);
 
       break;
     case EXHALE:
-   
-      /*if (steady_peep) {
-        VALVE_EXP = 0;
-        
-        // Monitoring pressure loss (patient reaction)
-
-        } else {
-        // Compute PID
-        error = sensors.getPRES_PAC_cm3H2O() - pres_ref;
-
-        // Proportional calc
-        pid_prop = peep_Kp * error;
-        // Integrative calc with anti-windup filter (coef tau_aw)
-        pid_int = pid_int + Ts * (peep_Ki * error + (peep_Kp/peep_tau_aw) * delta_u);
-        // Derivative calc with derivative filter (coef alpha)
-        derror = (1 - alpha) * prev_error + alpha * derror;
-        pid_der = peep_Kd * derror;
-        // Control action computation (PID)
-        pid_out = pid_prop + pid_int + pid_der;
-        // Control effort constraints
-        delta_ins = pid_out - prev_pid_out;      
-        //pid_out = delta_ins > 5 ? prev_pid_out + 5 : pid_out;
-        //pid_out = delta_ins < - 5 ? prev_pid_out - 5 : pid_out;
-
-        // // Control action limits
-        VALVE_EXP = pid_out;      
-        VALVE_EXP = VALVE_EXP > 100 ? 100 : VALVE_EXP;
-        VALVE_EXP = VALVE_EXP < 0 ? 0 : VALVE_EXP;
-
-        // Anti-windup component for next iteration
-        delta_u = VALVE_EXP - pid_out;      
-        
-        //if (VALVE_EXP - PREV_VALVE_EXP > 0) {
-          //steady_peep = true;
-        //}
-
-        // Saving variables for next iteration
-        prev_error = error;
-        prev_derror = derror;
-        prev_pid_out = pid_out;
-        PREV_VALVE_EXP = VALVE_EXP;
-      }
-      
-      // Applying control action to actuators
-      valves.setINS_VALVE(VALVE_INS);
-      valves.setEXP_VALVE(VALVE_EXP);*/
-
-      // Exhale valves configuration
-      //valves.setINS_VALVE(0);
-      //valves.setEXP_VALVE(100); 
-
       VALVE_INS = 0;
       VALVE_EXP = VALVE_EXP-p1;
       peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
       
-      //pres_init = sensors.getPRES_PAC_cm3H2O(); // Pressure to compute soft setpoint trajectory
+      // When peep is in steady state, monitor it to trigger ASSISTED_MODE
+
       break;
     case EXHALE_TO_INHALE:
       // Cleaning control variables
@@ -480,32 +406,25 @@ void loop() {
     } else if (part01.equals("MANUAL")) {
       valves.setMANUAL_SEC_VALVE(bool(value));
     } else if (part01.equals("VALVE_INS")) {
-        valves.setINS_VALVE(value);
+      valves.setINS_VALVE(value);
     } else if (part01.equals("BPM")) {
-        time_inhale_to_exhale = calculateInhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
-        time_exhale_to_inhale = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
+      time_inhale_to_exhale = calculateInhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
+      time_exhale_to_inhale = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
     } else if (part01.equals("PEAK")) {
-        pres_peak = value;
-        first_time = true;
+      pres_peak = value;
+      first_time = true;
     } else if (part01.equals("PID")) {
-        Kp = getValue(part02, ';', 0).toFloat();
-        Ki = getValue(part02, ';', 1).toFloat();
-        Kd = getValue(part02, ';', 2).toFloat();
-        tau_aw = sqrt(1/(Ki * Kd));
-    } else if (part01.equals("PID_PEEP")) {
-        peep_Kp = getValue(part02, ';', 0).toFloat();
-        peep_Ki = getValue(part02, ';', 1).toFloat();
-        peep_Kd = getValue(part02, ';', 2).toFloat();
-        peep_tau_aw = sqrt(1/(peep_Ki * peep_Kd));
+      Kp = getValue(part02, ';', 0).toFloat();
+      Ki = getValue(part02, ';', 1).toFloat();
+      Kd = getValue(part02, ';', 2).toFloat();
+      tau_aw = sqrt(1/(Ki * Kd));
     } else if (part01.equals("FILTER")) {
-        sensors.setFilterWeight(value);
+      sensors.setFilterWeight(value);
     } else if (part01.equals("ALPHA")) {
         alpha = value;
     } else if(part01.equals("PEEP")){
       peep_value = value;
       first_time = true;
-    } else if (part01.equals("SET_PEEP")) {
-        p1 = value;        
     } else if (part01.equals("TEST")) {
       current_state = TEST;
     } else if (part01.equals("BIAS")) {
@@ -518,7 +437,7 @@ void loop() {
   
   }
 
-  // Assert realtime iteration delay
+  // Assert realtime iteration delay (Default operation time is 60 ms)
   long end_loop_timestamp = millis();
   if (end_loop_timestamp - init_loop_timestamp < (Ts * 1000)) {
     delay(Ts * 1000 - (end_loop_timestamp - init_loop_timestamp)); // Ts is in seconds, but delay is in milliseconds

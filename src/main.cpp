@@ -32,6 +32,7 @@ volatile int time_inhale_to_exhale = 5000;
 volatile int time_exhale_to_inhale = 5000;
 volatile int time_transition = 200;
 volatile int time_plateau = 2000;
+volatile int time_exp_pause = 2000;
 
 
 typedef enum {
@@ -40,6 +41,7 @@ typedef enum {
     PLATEAU,
     INHALE_TO_EXHALE,
     EXHALE,
+    EXP_PAUSE,
     EXHALE_TO_INHALE,
     TEST
 } state;
@@ -131,16 +133,37 @@ void IRAM_ATTR onTimer() {
       timer_counter++;
     }
   } else if (current_state == EXHALE) {
-    if (timer_counter >= time_exhale_to_inhale) {
+    if (!exp_pause){
+      if (timer_counter >= time_exhale_to_inhale) {
+        current_state = EXHALE_TO_INHALE;
+        timer_counter = 0;
+        offexpvalve = false;
+      } else {
+        if (timer_counter ==0) VALVE_EXP = 100;
+        timer_counter++;     
+      }
+    }else{
+      if (timer_counter >= time_exhale_to_inhale) {
+        current_state = EXP_PAUSE;
+        timer_counter = 0;
+        offexpvalve = false;
+      } else {
+        if (timer_counter ==0) VALVE_EXP = 100;
+        timer_counter++;     
+      }
+
+
+    }
+
+  }else if (current_state == EXP_PAUSE){
+    if (timer_counter >= time_exp_pause){
       current_state = EXHALE_TO_INHALE;
       timer_counter = 0;
-      offexpvalve = false;
-    } else {
-      if (timer_counter ==0) VALVE_EXP = 100;
+      exp_pause = false;
+    }else{
       timer_counter++;
-      
     }
-  } else if (current_state == EXHALE_TO_INHALE) {
+  }else if (current_state == EXHALE_TO_INHALE) {
     if (timer_counter >= 10 && flag) {
       current_state = INHALE;
       timer_counter = 0;
@@ -365,6 +388,12 @@ void loop() {
       // When peep is in steady state, monitor it to trigger ASSISTED_MODE
 
       break;
+
+    case EXP_PAUSE:
+      VALVE_EXP = 0;
+      VALVE_INS = 0;
+
+    break;
     case EXHALE_TO_INHALE:
       // Cleaning control variables
       pid_prop = 0;
@@ -431,7 +460,9 @@ void loop() {
       sensors.bias = value;
     } else if (part01.equals("INS_HOLD")) {
       ins_pause = true;
-    } else {
+    } else if (part01.equals("EXP_HOLD")) {
+      exp_pause = true;
+    }else {
       valves.setEXP_VALVE(value);
     }
   

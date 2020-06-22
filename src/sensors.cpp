@@ -5,6 +5,7 @@ Sensors::Sensors(float filter_weight)
   // I2C addresses for Analog-Digital Convertes
   this->ads1 = Adafruit_ADS1115(0x48);
   this->ads2 = Adafruit_ADS1115(0x49);
+  this->ads3 =  Adafruit_ADS1115(0x50);
   this->measflow = SFM3000wedo(64);
 
   this->measflow.init();
@@ -12,6 +13,7 @@ Sensors::Sensors(float filter_weight)
   // ADS1115 Analog Digital Converter configs
   this->ads1.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
   this->ads2.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
+  this->ads3.setGain(GAIN_SIXTEEN);
   //  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
   //  ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
   //  ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
@@ -22,7 +24,10 @@ Sensors::Sensors(float filter_weight)
   this->ads2.begin();
 
   float ads_InputRange = 6.144f;
+  float ads3_InputRange = 0.256f;
   this->ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
+  this->ads3_bit_Voltage = (ads3_InputRange*2)/ (ADC_16BIT_MAX-1);
+
 
   // Initializing attributes 
   this->fl_int = 0;

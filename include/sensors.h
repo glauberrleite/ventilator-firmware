@@ -31,8 +31,10 @@ class Sensors {
 
         Adafruit_ADS1115 ads1;
         Adafruit_ADS1115 ads2;
+        Adafruit_ADS1115 ads3;
         SFM3000wedo measflow;
         float ads_bit_Voltage;
+        float ads3_bit_Voltage;
 
     public:
         float bias;

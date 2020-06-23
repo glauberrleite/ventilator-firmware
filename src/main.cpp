@@ -250,6 +250,8 @@ void setup() {
 }
 
 void loop() {
+
+  
   long init_loop_timestamp = millis();
   // Read sensors 
   sensors.update();
@@ -413,9 +415,16 @@ void loop() {
       break;
     default: break;
   }
-
+  
   valves.setINS_VALVE(VALVE_INS);
   valves.setEXP_VALVE(VALVE_EXP);
+  
+  /*valves.setEXP_VALVE(0);
+  valves.setINS_VALVE_PWM(0);
+  delay(3000);
+  valves.setEXP_VALVE(100);
+  valves.setINS_VALVE(100);
+  delay(3000)*/
   
   // Receiving commands via serial
   if (Serial.available() > 0) {
@@ -467,10 +476,11 @@ void loop() {
     }
   
   }
-
+  
   // Assert realtime iteration delay (Default operation time is 60 ms)
   long end_loop_timestamp = millis();
   if (end_loop_timestamp - init_loop_timestamp < (Ts * 1000)) {
     delay(Ts * 1000 - (end_loop_timestamp - init_loop_timestamp)); // Ts is in seconds, but delay is in milliseconds
   }
+  
 }

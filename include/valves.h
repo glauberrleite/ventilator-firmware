@@ -1,7 +1,9 @@
 #define   PWM_FREQ              25000
 #define   PWM_RES               10
-#define   INS_PROP_VALVE_PIN    5
-#define   EXP_PROP_VALVE_PIN    18
+//#define   INS_PROP_VALVE_PIN    5
+//#define   EXP_PROP_VALVE_PIN    18
+#define   INS_PROP_VALVE_PIN    18
+#define   EXP_PROP_VALVE_PIN    5
 #define   INS_PROP_VALVE_CH     0
 #define   EXP_PROP_VALVE_CH     1
 #define   MANUAL_SEC_VALVE_PIN  33

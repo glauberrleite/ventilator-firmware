@@ -64,7 +64,7 @@ unsigned long new_timestamp;
 
 // Ins PID variables
 float Kp = 5;
-float Ki = 0.08;
+float Ki = 0.01;
 float Kd = 0.1;
 
 float alpha = 0.1;
@@ -168,6 +168,8 @@ void IRAM_ATTR onTimer() {
       current_state = INHALE;
       timer_counter = 0;
       flag = false;
+      volume =0;
+      
     } else {
       timer_counter++;
       //if (time_exhale_to_inhale - timer_counter <10) offexpvalve = true;
@@ -264,8 +266,9 @@ void loop() {
     delta_timestamp = Ts;
   }
   //volume  = delta_timestamp;
-  if (current_state != IDLE && !((flow < 0) && (flow > -1))) 
+  if (current_state != IDLE && !((flow < 0) && (flow > -3))) 
     volume += (flow / 60) *  (delta_timestamp); // Volume in mL
+ 
   prev_timestamp = new_timestamp;
 
   // Printing variables
@@ -407,6 +410,7 @@ void loop() {
       VALVE_EXP = 0;
       delta_u = 0;
       steady_peep = false;
+      
 
       flag = true;
 
@@ -419,13 +423,7 @@ void loop() {
   valves.setINS_VALVE(VALVE_INS);
   valves.setEXP_VALVE(VALVE_EXP);
   
-  /*valves.setEXP_VALVE(0);
-  valves.setINS_VALVE_PWM(0);
-  delay(3000);
-  valves.setEXP_VALVE(100);
-  valves.setINS_VALVE(100);
-  delay(3000)*/
-  
+
   // Receiving commands via serial
   if (Serial.available() > 0) {
     // Lê toda string recebida

@@ -23,7 +23,6 @@ Valves valves;
 
 volatile float pres_peak = 10;
 volatile float pres_ref;
-volatile float volume_ref = 30;
 float flow;
 float volume;
 
@@ -37,16 +36,23 @@ volatile int time_exp_pause = 2000;
 
 typedef enum {
     IDLE,
-    INHALE,
+    INHALE_PCV,
     PLATEAU,
     INHALE_TO_EXHALE,
     EXHALE,
     EXP_PAUSE,
     EXHALE_TO_INHALE,
+    INHALE_VCV,
     TEST
 } state;
 
+typedef enum {
+    PCV,
+    VCV
+} resp_mode;
+
 volatile state current_state;
+volatile resp_mode mode;
 volatile int timer_counter = 0;
 volatile bool flag = false;
 
@@ -95,12 +101,20 @@ float last_ins_pressure;
 float peep_error = 0;
 bool first_time = true;
 
+// VCV variables
+float max_flux = 30;
+float inlet_flux_ref = max_flux;
+float volume_ref = 600;
+float last_inlet_flux_ref;
+float last_inlet_flux;
+float last_VALVE_INS;
+float adjusted_VALVE_INS;
 // Custom functions
 
 // Timer callback
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
-  if (current_state == INHALE) {
+  if (current_state == INHALE_PCV) {
     if (!ins_pause){ /// SE O BOTÃO INSP NÃO TIVER SIDO PRESSIONADO (CONDIÇÃO NORMAL)
       if (timer_counter >= time_inhale_to_exhale) {
       current_state = INHALE_TO_EXHALE; //VAI PARA A TRANSIÇÃO INS - EXP
@@ -148,7 +162,7 @@ void IRAM_ATTR onTimer() {
         timer_counter = 0;
         offexpvalve = false;
       } else {
-        if (timer_counter ==0) VALVE_EXP = 100;
+        if (timer_counter == 0) VALVE_EXP = 100;
         timer_counter++;     
       }
 
@@ -165,10 +179,14 @@ void IRAM_ATTR onTimer() {
     }
   }else if (current_state == EXHALE_TO_INHALE) {
     if (timer_counter >= 10 && flag) {
-      current_state = INHALE;
+      if (mode == PCV) {
+        current_state = INHALE_PCV;
+      } else if (mode == VCV) {
+        current_state = INHALE_VCV;
+      }
       timer_counter = 0;
       flag = false;
-      volume =0;
+      volume = 0;
       
     } else {
       timer_counter++;
@@ -268,6 +286,10 @@ void loop() {
   //volume  = delta_timestamp;
   if (current_state != IDLE && !((flow < 0) && (flow > -3))) 
     volume += (flow / 60) *  (delta_timestamp); // Volume in mL
+  
+  if (volume < 0) {
+    volume = 0;
+  }
  
   prev_timestamp = new_timestamp;
 
@@ -300,12 +322,15 @@ void loop() {
   Serial.print(",");
   
   Serial.print(pres_ref);
+  Serial.print(",");
+
+  Serial.print(inlet_flux_ref);
 
   Serial.println();
 
   // State machine
   switch (current_state) {
-    case INHALE:
+    case INHALE_PCV:
       // Pressure security condition
       if (sensors.getPRES_PAC_cm3H2O() > 30) {
         current_state = INHALE_TO_EXHALE;
@@ -339,6 +364,67 @@ void loop() {
       prev_derror = derror;
       prev_pid_out = pid_out;
       break;
+    case INHALE_VCV:
+
+      if (volume < volume_ref) {
+        // If constant flux
+        inlet_flux_ref = max_flux;
+        // If decreasing flux
+        // TODO
+        // inlet_flux_ref = ...
+
+        /*error = inlet_flux_ref - sensors.getFL_PAC();
+        
+        if (abs(error) > 2) {
+
+          // Proportional calc
+          pid_prop = Kp * error;
+          // Integrative calc with anti-windup filter (coef tau_aw)
+          pid_int = pid_int + Ts * (Ki * error + (Kp/tau_aw) * delta_u);
+          // Derivative calc with derivative filter (coef alpha)
+          derror = (1 - alpha) * prev_error + alpha * derror;
+          pid_der = Kd * derror;
+          // Control action computation (PID)
+          pid_out = pid_prop + pid_int + pid_der;
+          // Control effort constraints
+          delta_ins = pid_out - prev_pid_out;      
+          pid_out = delta_ins > 5 ? prev_pid_out + 5 : pid_out;
+          pid_out = delta_ins < - 1 ? prev_pid_out - 1 : pid_out;
+          // // Control action limits
+          VALVE_INS = pid_out;      
+          VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
+          VALVE_INS = VALVE_INS < 0 ? 0 : VALVE_INS;
+          // Anti-windup component for next iteration
+          delta_u = VALVE_INS - (prev_pid_out + delta_ins);
+
+          // Saving variables for next iteration
+          prev_error = error;
+          prev_pid_out = pid_out;
+        }*/
+
+        if (first_time) {
+          VALVE_INS = 1.3 * max_flux;
+        } else {
+          VALVE_INS = adjusted_VALVE_INS;
+        }
+
+      } else {
+        if (!ins_pause) {
+          current_state = INHALE_TO_EXHALE; 
+        }
+        else {
+          current_state = PLATEAU;
+          ins_pause = false;
+        }
+        
+        timer_counter = 0;
+        last_inlet_flux = sensors.getFL_PAC();
+        last_inlet_flux_ref = inlet_flux_ref;
+        last_VALVE_INS = VALVE_INS;
+        VALVE_INS = 0;
+      }
+      
+      break;
     case PLATEAU:
       VALVE_INS = 0;
       VALVE_EXP = 0;
@@ -349,12 +435,15 @@ void loop() {
       pid_int = 0;
       pid_der = 0;
       prev_error = 0;
-      prev_pid_out = 100;
-     
       delta_u = 0;
 
       //FECHAR EXP SUAVEMENTE
-      if (timer_counter <=  time_transition/2){
+      if (mode == VCV) {
+        VALVE_INS = 0;
+        VALVE_EXP = (100*timer_counter/time_transition) + 40;
+        VALVE_EXP = VALVE_EXP > 100 ? 100 : VALVE_EXP;
+        VALVE_EXP = VALVE_EXP < 0 ? 0 : VALVE_EXP;
+      } else if (timer_counter <=  time_transition/2){
         
         //valves.setEXP_VALVE((-50*timer_counter)/(time_transition-1)+50);
         //FECHA INS
@@ -362,14 +451,15 @@ void loop() {
         //ABRE EXP
         VALVE_EXP = 0;
         
-      }
-      else {
+      } else {
         VALVE_INS = 0;
         //VALVE_EXP = 100;
         VALVE_EXP = (120*timer_counter/time_transition)-20;
       }
+       
 
-      // New pressure reference
+      // New inlet flux and pressure references
+      inlet_flux_ref = 0;
       pres_ref = peep_value;
       last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
 
@@ -381,8 +471,13 @@ void loop() {
         p1 = p1 + 0.01 * peep_error;
       }
 
-      // Tunning PID Kp for next cycle
-      Kp = Kp + 0.08 * (pres_peak - last_ins_pressure);
+      if (mode == PCV) {
+        // Tunning PID Kp for next cycle
+        Kp = Kp + 0.08 * (pres_peak - last_ins_pressure);
+      } else {
+        // Tunning PID Kp for next cycle
+        adjusted_VALVE_INS = last_VALVE_INS + 0.3 * (last_inlet_flux_ref - last_inlet_flux);
+      }
 
       break;
     case EXHALE:
@@ -437,6 +532,15 @@ void loop() {
     if (part01.equals("START")) {
       current_state = EXHALE_TO_INHALE;
       timerAlarmEnable(timer);
+
+      if (part02.equals("PCV")) {
+        mode = PCV;
+      } else if (part02.equals("VCV")) {
+        mode = VCV;
+      } else {
+        current_state = IDLE;
+        timerAlarmDisable(timer);
+      }
     } else if (part01.equals("AUTO")) {
       valves.setAUTO_SEC_VALVE(bool(value));
     } else if (part01.equals("MANUAL")) {
@@ -458,19 +562,20 @@ void loop() {
       sensors.setFilterWeight(value);
     } else if (part01.equals("ALPHA")) {
         alpha = value;
-    } else if(part01.equals("PEEP")){
+    } else if(part01.equals("PEEP")) {
       peep_value = value;
       first_time = true;
     } else if (part01.equals("TEST")) {
       current_state = TEST;
-    } else if (part01.equals("BIAS")) {
-      sensors.bias = value;
     } else if (part01.equals("INS_HOLD")) {
       ins_pause = true;
     } else if (part01.equals("EXP_HOLD")) {
       exp_pause = true;
-    }else {
-      valves.setEXP_VALVE(value);
+    } else if (part01.equals("MAX_FLUX")) {
+      max_flux = value;
+      adjusted_VALVE_INS = 1.3 * max_flux;
+    } else if (part01.equals("VOLUME")) {
+      volume_ref = value;
     }
   
   }

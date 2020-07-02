@@ -111,6 +111,7 @@ float last_ins_pressure;
 float last_inhale_pressure;
 float peep_error = 0;
 bool first_time = true;
+float save_last_ins_pressure=0;
 
 // VCV variables
 float max_flux = 30;
@@ -333,6 +334,9 @@ void commands(void * arg) {
                     current_state = IDLE;
                     timerAlarmDisable(timer);
                 }
+
+            } else if (part01.equals("STOP")){
+                current_state = IDLE;
             } else if (part01.equals("AUTO")) {
                 valves.setAUTO_SEC_VALVE(bool(value));
             } else if (part01.equals("MANUAL")) {
@@ -371,6 +375,8 @@ void commands(void * arg) {
             } else if (part01.equals("SET_PEEP")) {
                 p1 = getValue(part02, ';', 0).toFloat();
             }
+
+            
         }
         vTaskDelay(1);
     }
@@ -434,6 +440,11 @@ void loop() {
 
     // State machine
     switch (current_state) {
+        case IDLE:
+            VALVE_INS = 0;
+            VALVE_EXP = 100;
+            timer_counter = 0;
+            break;
         case INHALE_PCV:
             // Pressure security condition
             if (sensors.getPRES_PAC_cm3H2O() > 60) {
@@ -513,6 +524,21 @@ void loop() {
                     VALVE_INS = 0;
                     VALVE_EXP = (100 * timer_counter / time_transition) + 40;
 
+                if (abs(peep_error)>= 3){
+                    p1 = p1 + 0.25 * peep_error;
+                }
+                else if (abs(peep_error)<3 && abs(peep_error)>=1){
+                    p1 = p1 + 0.15 * peep_error;
+                }
+                else if (abs(peep_error)<1 && abs(peep_error)>=0.5){
+                    p1 = p1 + 0.08 * peep_error;
+                }
+                else if (abs(peep_error)<0.5 && abs(peep_error)>=0.1){
+                    p1 = p1 + 0.01 * peep_error;
+                }
+                else if (abs(peep_error)<0.1){
+                    p1 =p1;
+                }
                 /*
                 if (timer_counter <= time_transition / 2) {
 
@@ -534,6 +560,23 @@ void loop() {
                 VALVE_EXP = VALVE_EXP < 0 ? 0 : VALVE_EXP;
                 // Tunning PID Kp for next cycle
                 adjusted_VALVE_INS = last_VALVE_INS + 0.3 * (last_inlet_flux_ref - last_inlet_flux);
+
+
+                if (abs(peep_error)>= 3){
+                    p1 = p1 + 0.25 * peep_error;
+                }
+                else if (abs(peep_error)<3 && abs(peep_error)>=1){
+                    p1 = p1 + 0.15 * peep_error;
+                }
+                else if (abs(peep_error)<1 && abs(peep_error)>=0.5){
+                    p1 = p1 + 0.08 * peep_error;
+                }
+                else if (abs(peep_error)<0.5 && abs(peep_error)>=0.1){
+                    p1 = p1 + 0.01 * peep_error;
+                }
+                else if (abs(peep_error)<0.1){
+                    p1 =p1;
+                }                
             }
             // Cleaning control variables
             pid_prop = 0;
@@ -547,22 +590,20 @@ void loop() {
             pres_ref = peep_value;
 
             // Tunning exp valve adjustiment component
-            if (abs(peep_error) >2.5 ) first_time = true;
-            p1 = p1 + 0.01 * peep_error;
+
+  
             last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
-            
-
-
             break;
         case EXHALE:
+            save_last_ins_pressure = last_ins_pressure;
             if (first_time) {
-              p1 = -3.294 -0.05674*last_ins_pressure+2.596*peep_value +0.0487* pow(last_ins_pressure,2) -0.3695*last_ins_pressure*peep_value +0.3002*pow(peep_value,2)- 0.001333*pow(last_ins_pressure,3) +0.008985*pow(last_ins_pressure,2)*peep_value-0.009181*last_ins_pressure*pow(peep_value,2)  ; 
+
+              p1=0;  
+              //p1 = -3.294 -0.05674*last_ins_pressure+2.596*peep_value +0.0487* pow(last_ins_pressure,2) -0.3695*last_ins_pressure*peep_value +0.3002*pow(peep_value,2)- 0.001333*pow(last_ins_pressure,3) +0.008985*pow(last_ins_pressure,2)*peep_value-0.009181*last_ins_pressure*pow(peep_value,2)  ; 
               //p1 = 2.131 + 0.09507*last_ins_pressure -0.7746*peep_value -0.0008329*pow(last_ins_pressure,2) -0.01363*last_ins_pressure*peep_value+ 0.07615*pow(peep_value,2);
               //p1 = 0.7116 - 0.03798 * last_ins_pressure + 0.05375 * peep_value - 0.001111 * pow(peep_value, 2) + 0.005175 * last_ins_pressure * peep_value - 0.02419 * pow(peep_value, 2) + 0.001014 * pow(last_ins_pressure, 2) * peep_value - 0.004439 * last_ins_pressure * pow(peep_value, 2) + 0.007044 * pow(peep_value, 3);
               first_time = false;
             }
-
-
             VALVE_INS = 0;
             VALVE_EXP = VALVE_EXP - p1;
            
@@ -570,9 +611,7 @@ void loop() {
             if (timer_counter > time_exhale_to_inhale/2){
 
             }
-
             // When peep is in steady state, monitor it to trigger ASSISTED_MODE
-
             break;
 
         case EXP_PAUSE:

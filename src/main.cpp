@@ -274,6 +274,18 @@ void prints(void * arg) {
 
         Serial.print(sensors.getPRES_PAC_cm3H2O());
         Serial.print(",");
+        Serial.print(sensors.getPRES_INT_cm3H2O());
+        Serial.print(",");
+
+        Serial.print(sensors.getPRES_EXT_cm3H2O());
+        Serial.print(",");       
+    
+        Serial.print(sensors.getFL_INT());
+        Serial.print(","); 
+
+        Serial.print(sensors.getFi02());
+        Serial.print(","); 
+
 
         Serial.print(flow);
         Serial.print(",");
@@ -299,7 +311,9 @@ void prints(void * arg) {
         Serial.print(p1);
         Serial.print(",");
 
-        Serial.print(last_ins_pressure);
+        
+
+        
 
         Serial.println();
         //long end = millis() - start;
@@ -525,13 +539,13 @@ void loop() {
                     VALVE_EXP = (100 * timer_counter / time_transition) + 40;
 
                 if (abs(peep_error)>= 3){
-                    p1 = p1 + 0.25 * peep_error;
+                    p1 = p1 + 0.04 * peep_error;
                 }
                 else if (abs(peep_error)<3 && abs(peep_error)>=1){
-                    p1 = p1 + 0.15 * peep_error;
+                    p1 = p1 + 0.03 * peep_error;
                 }
                 else if (abs(peep_error)<1 && abs(peep_error)>=0.5){
-                    p1 = p1 + 0.08 * peep_error;
+                    p1 = p1 + 0.02 * peep_error;
                 }
                 else if (abs(peep_error)<0.5 && abs(peep_error)>=0.1){
                     p1 = p1 + 0.01 * peep_error;
@@ -563,13 +577,13 @@ void loop() {
 
 
                 if (abs(peep_error)>= 3){
-                    p1 = p1 + 0.25 * peep_error;
+                    p1 = p1 + 0.04 * peep_error;
                 }
                 else if (abs(peep_error)<3 && abs(peep_error)>=1){
-                    p1 = p1 + 0.15 * peep_error;
+                    p1 = p1 + 0.03 * peep_error;
                 }
                 else if (abs(peep_error)<1 && abs(peep_error)>=0.5){
-                    p1 = p1 + 0.08 * peep_error;
+                    p1 = p1 + 0.02 * peep_error;
                 }
                 else if (abs(peep_error)<0.5 && abs(peep_error)>=0.1){
                     p1 = p1 + 0.01 * peep_error;

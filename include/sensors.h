@@ -31,10 +31,11 @@ class Sensors {
 
         Adafruit_ADS1115 ads1;
         Adafruit_ADS1115 ads2;
-        //Adafruit_ADS1115 ads3;
+        Adafruit_ADS1115 ads3;
         SFM3000wedo measflow;
         float ads_bit_Voltage;
         float ads3_bit_Voltage;
+        float fio2;
 
     public:
         float bias;
@@ -60,6 +61,8 @@ class Sensors {
         float getPRES_EXT_cm3H2O();
         float getDIFF_PRES_PAC_cm3H2O();
         float getDIFF_PRES_PAC_PSI();
+
+        float getFi02();
 
     private:
         //Functions below are called in update() with the readings from corresponding ports set as parameters

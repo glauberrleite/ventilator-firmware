@@ -5,7 +5,7 @@ Sensors::Sensors(float filter_weight)
   // I2C addresses for Analog-Digital Convertes
   this->ads1 = Adafruit_ADS1115(0x48);
   this->ads2 = Adafruit_ADS1115(0x49);
-  //this->ads3 =  Adafruit_ADS1115(0x50);
+  this->ads3 =  Adafruit_ADS1115(0x50);
   this->measflow = SFM3000wedo(64);
 
   this->measflow.init();
@@ -13,7 +13,7 @@ Sensors::Sensors(float filter_weight)
   // ADS1115 Analog Digital Converter configs
   this->ads1.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
   this->ads2.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  //this->ads3.setGain(GAIN_SIXTEEN);
+  this->ads3.setGain(GAIN_TWOTHIRDS);
   //  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
   //  ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
   //  ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
@@ -22,9 +22,11 @@ Sensors::Sensors(float filter_weight)
 
   this->ads1.begin();
   this->ads2.begin();
+  this->ads3.begin();
 
   float ads_InputRange = 6.144f;
-  float ads3_InputRange = 0.256f;
+  //float ads3_InputRange = 0.256f;
+  float ads3_InputRange = 6.144f;
   this->ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
   this->ads3_bit_Voltage = (ads3_InputRange*2)/ (ADC_16BIT_MAX-1);
 
@@ -50,38 +52,44 @@ void Sensors::update()
     int16_t ads2_ch0 = 0;
     int16_t ads2_ch1 = 0;
     int16_t ads2_ch2 = 0;
-    int16_t ads2_ch3 = 0;
+    //int16_t ads2_ch3 = 0;
+    int16_t ads3_ch0 =0;
 
     // Getting sensors data
     float ads1_Voltage_ch0 = 0.0f;
     float ads2_Voltage_ch0 = 0.0f;
     float ads2_Voltage_ch1 = 0.0f;
     float ads2_Voltage_ch2 = 0.0f;
-    float ads2_Voltage_ch3 = 0.0f;
+    float ads3_Voltage_ch0 =0.0f;
+    //float ads2_Voltage_ch3 = 0.0f;
 
     // Reading and converting ADC Raw data to Voltage
     ads1_ch0 = this->ads1.readADC_SingleEnded(0);
     ads2_ch0 = this->ads2.readADC_SingleEnded(0);
     ads2_ch1 = this->ads2.readADC_SingleEnded(1);
     ads2_ch2 = this->ads2.readADC_SingleEnded(2);
-    ads2_ch3 = this->ads2.readADC_SingleEnded(3);
+    ads3_ch0 = this->ads3.readADC_SingleEnded(0);
+
+    //ads2_ch3 = this->ads2.readADC_SingleEnded(3);
     
     ads1_Voltage_ch0 = ads1_ch0 * ads_bit_Voltage;
     ads2_Voltage_ch0 = ads2_ch0 * ads_bit_Voltage;
     ads2_Voltage_ch1 = ads2_ch1 * ads_bit_Voltage;
     ads2_Voltage_ch2 = ads2_ch2 * ads_bit_Voltage;
-    ads2_Voltage_ch3 = ads2_ch3 * ads_bit_Voltage;
+    ads3_Voltage_ch0 = ads3_ch0 * ads3_bit_Voltage;
+    //ads2_Voltage_ch3 = ads2_ch3 * ads_bit_Voltage;
  
     this->fl_int = this->filter_weight * this->fl_int + (1 - this->filter_weight) * getFlowAWM720P(ads1_Voltage_ch0);
     this->pres_pac = this->filter_weight * this->pres_pac + (1 - this->filter_weight) * getPressureNewASDX001PDAA5(ads2_Voltage_ch0);
     this->pres_int = this->filter_weight * this->pres_int + (1 - this->filter_weight) * getPressureNewASDX001PDAA5(ads2_Voltage_ch1);    
     this->pres_ext = this->filter_weight * this->pres_ext + (1 - this->filter_weight) * getPressureNewASDX001PDAA5(ads2_Voltage_ch2);
-    this->diff_pres_pac = getPressureASDX005NDAA5(ads2_Voltage_ch3);
+    //this->diff_pres_pac = getPressureASDX005NDAA5(ads2_Voltage_ch3);
 
     // Calculating flow_pac based on diff_press
-    float signal = this->diff_pres_pac >= 0 ? 1 : -1;
-    this->venturi_pac = this->filter_weight * this->venturi_pac + (1 - this->filter_weight) * signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
+    //float signal = this->diff_pres_pac >= 0 ? 1 : -1;
+    //this->venturi_pac = this->filter_weight * this->venturi_pac + (1 - this->filter_weight) * signal * this->const_flux * sqrt(abs(this->diff_pres_pac)); // Flux in m3/s
     this->fl_pac = this->filter_weight * this->fl_pac + (1 - this->filter_weight) * getFlowSFM3300(); // Flux in m3/s
+    this->fio2 = ads3_Voltage_ch0;
     
 }
 
@@ -227,4 +235,9 @@ float Sensors::getDIFF_PRES_PAC_PSI()
 float Sensors::getFlowSFM3300()
 {
   return (measflow.getvalue()-32768)/120.0;
+}
+
+float Sensors::getFi02()
+{
+  return this->fio2;
 }

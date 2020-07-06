@@ -20,7 +20,7 @@ https://forum.arduino.cc/index.php?topic=559766.0
 #include "valves.h"
 
 #define BPM 15
-#define RATIO 0.66
+#define RATIO 2
 
 float Ts = 0.07;
 
@@ -79,11 +79,11 @@ unsigned long prev_timestamp;
 unsigned long new_timestamp;
 
 // Ins PID variables
-float Kp = 5;
+float Kp = 1;
 float Ki = 0.01;
 float Kd = 0.1;
 
-float alpha = 0.1;
+float alpha = 0.9;
 float pid_out = 0;
 float delta_ins = 0;
 float error = 0;
@@ -111,7 +111,7 @@ float last_ins_pressure;
 float last_inhale_pressure;
 float peep_error = 0;
 bool first_time = true;
-float save_last_ins_pressure=0;
+float save_last_ins_pressure = 0;
 
 // VCV variables
 float max_flux = 30;
@@ -248,11 +248,13 @@ String getValue(String data, char separator, int index) {
 }
 
 int calculateInhale(float bpm, float ratio) {
-    return (60000 / bpm) * (1 - ratio);
+    float t_cicle= 60000 / bpm;
+    return t_cicle * (1 - ratio/(ratio+1));
 }
 
 int calculateExhale(float bpm, float ratio) {
-    return (60000 / bpm) * ratio;
+    float t_cicle= 60000 / bpm;
+    return t_cicle * ratio/(ratio+1);
 }
 
 void prints(void * arg) {
@@ -264,13 +266,13 @@ void prints(void * arg) {
         Serial.print(",");
 
         /*Serial.print(sensors.getFL_INT());
-  Serial.print(",");
+        Serial.print(",");
   
-  Serial.print(sensors.getPRES_INT_cm3H2O());
-  Serial.print(",");
+        Serial.print(sensors.getPRES_INT_cm3H2O());
+        Serial.print(",");
 
-  Serial.print(sensors.getPRES_EXT_cm3H2O());
-  Serial.print(",");*/
+        Serial.print(sensors.getPRES_EXT_cm3H2O());
+        Serial.print(",");*/
 
         Serial.print(sensors.getPRES_PAC_cm3H2O());
         Serial.print(",");
@@ -310,10 +312,6 @@ void prints(void * arg) {
 
         Serial.print(p1);
         Serial.print(",");
-
-        
-
-        
 
         Serial.println();
         //long end = millis() - start;
@@ -362,6 +360,26 @@ void commands(void * arg) {
                 time_exhale_to_inhale = calculateExhale(getValue(part02, ';', 0).toFloat(), getValue(part02, ';', 1).toFloat());
             } else if (part01.equals("PEAK")) {
                 pres_peak = value;
+
+                // Defining PID adaptive tunning
+                if (pres_peak <= 20) {
+                    Kp = 2.5;
+                    Ki = 3;
+                    Kd = 3;
+                } else if (peep_value < 2.5) {
+                    Kp = 4;
+                    Ki = 3;
+                    Kd = 1.25;
+                } else if (peep_value < 10) {
+                    Kp = 2;
+                    Ki = 3;
+                    Kd = 2;
+                } else {
+                    Kp = 0.9;
+                    Ki = 3;
+                    Kd = 1.25;
+                }
+
                 first_time = true;
             } else if (part01.equals("PID")) {
                 Kp = getValue(part02, ';', 0).toFloat();
@@ -374,6 +392,25 @@ void commands(void * arg) {
                 alpha = value;
             } else if (part01.equals("PEEP")) {
                 peep_value = value;
+                
+                // Defining PID adaptive tunning
+                if (pres_peak <= 20) {
+                    Kp = 2.5;
+                    Ki = 3;
+                    Kd = 3;
+                } else if (peep_value < 2.5) {
+                    Kp = 4;
+                    Ki = 3;
+                    Kd = 1.25;
+                } else if (peep_value < 10) {
+                    Kp = 2;
+                    Ki = 3;
+                    Kd = 2;
+                } else {
+                    Kp = 0.9;
+                    Ki = 3;
+                    Kd = 1.25;
+                }
                 first_time = true;
             } else if (part01.equals("TEST")) {
                 current_state = TEST;
@@ -468,6 +505,7 @@ void loop() {
 
             // Calculating error from current reading to desired output
             error = pres_ref - sensors.getPRES_PAC_cm3H2O();
+            error = error - 0.025 * sensors.getFL_PAC();
             // Proportional calc
             pid_prop = Kp * error;
             // Integrative calc with anti-windup filter (coef tau_aw)
@@ -480,8 +518,8 @@ void loop() {
             pid_out = pid_prop + pid_int + pid_der;
             // Control effort constraints
             delta_ins = pid_out - prev_pid_out;
-            pid_out = delta_ins > 7.5 ? prev_pid_out + 7.5 : pid_out;
-            pid_out = delta_ins < - 1 ? prev_pid_out - 1 : pid_out;
+            pid_out = delta_ins > 10 ? prev_pid_out + 10 : pid_out;
+            pid_out = delta_ins < - 3 ? prev_pid_out - 3 : pid_out;
             // // Control action limits
             VALVE_INS = pid_out;
             VALVE_INS = VALVE_INS > 100 ? 100 : VALVE_INS;
@@ -533,10 +571,13 @@ void loop() {
 
             if (mode == PCV) {
                 // Tunning PID Kp for next cycle
-                if (abs(pres_peak - last_inhale_pressure) > 1)
+                if (abs(pres_peak - last_inhale_pressure) > 1) {
                     Kp = Kp + 0.08 * (pres_peak - last_inhale_pressure);
-                    VALVE_INS = 0;
-                    VALVE_EXP = (100 * timer_counter / time_transition) + 40;
+                    Kp = Kp > 0.01 ? Kp : 0.01;
+                }
+                VALVE_INS = 0;
+                VALVE_EXP = (100 * timer_counter / time_transition) + 40;
+                    //VALVE_EXP = 100;
 
                 if (abs(peep_error)>= 3){
                     p1 = p1 + 0.04 * peep_error;

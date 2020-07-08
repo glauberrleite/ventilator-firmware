@@ -126,6 +126,12 @@ float last_inlet_flux;
 float last_VALVE_INS;
 float adjusted_VALVE_INS;
 
+bool assisted = false;
+float effort =0;
+float total_effort =0;
+float sensibility =1;
+
+
 // Custom functions
 
 // Timer callback
@@ -274,25 +280,8 @@ void prints(void * arg) {
         Serial.print(current_state);
         Serial.print(",");
 
-        /*Serial.print(sensors.getFL_INT());
-        Serial.print(",");
-  
-        Serial.print(sensors.getPRES_INT_cm3H2O());
-        Serial.print(",");
-
-        Serial.print(sensors.getPRES_EXT_cm3H2O());
-        Serial.print(",");*/
-
         Serial.print(sensors.getPRES_PAC_cm3H2O());
-        Serial.print(",");
-        Serial.print(sensors.getPRES_INT_cm3H2O());
-        Serial.print(",");
-
-        Serial.print(sensors.getPRES_EXT_cm3H2O());
-        Serial.print(",");       
-    
-        Serial.print(sensors.getFL_INT());
-        Serial.print(","); 
+        Serial.print(",");        
 
         Serial.print(sensors.getFi02());
         Serial.print(","); 
@@ -316,8 +305,8 @@ void prints(void * arg) {
         Serial.print(inlet_flux_ref);
         Serial.print(",");
 
-        Serial.print(Kp);
-        Serial.print(",");
+        /*Serial.print(Kp);
+        Serial.print(",");*/
 
         Serial.print(time_cicle);
         Serial.print(",");
@@ -335,10 +324,24 @@ void prints(void * arg) {
             Serial.print(","); 
 
         }
-         if (current_state == INHALE_TO_EXHALE)
+        /*if (current_state == INHALE_TO_EXHALE)
             Serial.print(timer_counter);
         else
-            Serial.print("-1");   
+            Serial.print("-1"); */  
+        Serial.print(assisted);
+        Serial.print(","); 
+
+        Serial.print(effort);
+        Serial.print(",");
+
+        Serial.print(total_effort);
+        Serial.print(",");
+
+        Serial.print(steady_peep);
+        Serial.print(",");  
+        
+        
+         
 
         Serial.println();
         //long end = millis() - start;
@@ -376,6 +379,7 @@ void commands(void * arg) {
 
             } else if (part01.equals("STOP")){
                 current_state = IDLE;
+                volume =0;
             } else if (part01.equals("AUTO")) {
                 valves.setAUTO_SEC_VALVE(bool(value));
             } else if (part01.equals("MANUAL")) {
@@ -400,10 +404,6 @@ void commands(void * arg) {
                     Kp = 2.5;
                     Ki = 3;
                     Kd = 3;
-                } else if (peep_value < 2) {
-                    Kp = 4;
-                    Ki = 3;
-                    Kd = 1.25;
                 } else if (peep_value < 10) {
                     Kp = 2;
                     Ki = 3;
@@ -432,10 +432,6 @@ void commands(void * arg) {
                     Kp = 2.5;
                     Ki = 3;
                     Kd = 3;
-                } else if (peep_value < 2) {
-                    Kp = 4;
-                    Ki = 3;
-                    Kd = 1.25;
                 } else if (peep_value < 10) {
                     Kp = 2;
                     Ki = 3;
@@ -458,8 +454,8 @@ void commands(void * arg) {
             } else if (part01.equals("VOLUME")) {
                 volume_desired = value;
                 volume_ref = volume_desired;
-            } else if (part01.equals("SET_PEEP")) {
-                p1 = getValue(part02, ';', 0).toFloat();
+            } else if (part01.equals("SENSIBILITY")) {
+                sensibility = value;
             }
 
             
@@ -684,28 +680,45 @@ void loop() {
             inlet_flux_ref = 0;
             pres_ref = peep_value;
   
-            last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
+            
             break;
         case EXHALE:
-            first_inhale_to_exhale = true;
-
-            save_last_ins_pressure = last_ins_pressure;
+            first_inhale_to_exhale = true;            
             if (first_time) {
 
-              p1 = 0;  
-              //p1 = -3.294 -0.05674*last_ins_pressure+2.596*peep_value +0.0487* pow(last_ins_pressure,2) -0.3695*last_ins_pressure*peep_value +0.3002*pow(peep_value,2)- 0.001333*pow(last_ins_pressure,3) +0.008985*pow(last_ins_pressure,2)*peep_value-0.009181*last_ins_pressure*pow(peep_value,2)  ; 
-              //p1 = 2.131 + 0.09507*last_ins_pressure -0.7746*peep_value -0.0008329*pow(last_ins_pressure,2) -0.01363*last_ins_pressure*peep_value+ 0.07615*pow(peep_value,2);
-              //p1 = 0.7116 - 0.03798 * last_ins_pressure + 0.05375 * peep_value - 0.001111 * pow(peep_value, 2) + 0.005175 * last_ins_pressure * peep_value - 0.02419 * pow(peep_value, 2) + 0.001014 * pow(last_ins_pressure, 2) * peep_value - 0.004439 * last_ins_pressure * pow(peep_value, 2) + 0.007044 * pow(peep_value, 3);
+              p1 = 0; 
+              
               first_time = false;
             }
             VALVE_INS = 0;
             VALVE_EXP = VALVE_EXP - p1;
-           
             peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
-            if (timer_counter > time_exhale_to_inhale/2){
+           
+           
 
-            }
             // When peep is in steady state, monitor it to trigger ASSISTED_MODE
+
+            if (timer_counter > time_exhale_to_inhale/2){
+                steady_peep = true;
+                last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
+                effort = save_last_ins_pressure - last_ins_pressure;               
+                if (save_last_ins_pressure > last_ins_pressure) {
+                    total_effort += effort;
+                    if (total_effort > sensibility ){
+                        assisted = true;
+                        current_state = EXHALE_TO_INHALE;
+                          
+                    }
+                                                      
+                }
+                else if (!assisted){
+                    peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
+                }
+                save_last_ins_pressure =  last_ins_pressure;
+            } else{
+                save_last_ins_pressure =  sensors.getPRES_PAC_cm3H2O();
+                
+            }           
             break;
 
         case EXP_PAUSE:
@@ -724,6 +737,8 @@ void loop() {
             VALVE_EXP = 0;
             delta_u = 0;
             steady_peep = false;
+            assisted = false;
+            total_effort = 0;
 
             flag = true;
 

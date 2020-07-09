@@ -131,6 +131,11 @@ float effort = 0;
 float total_effort = 0;
 float sensibility = 1;
 
+// Peak variables
+volatile float ve = 0;
+volatile float pe = 0;
+float pe_aux = 0;
+
 // Custom functions
 
 // Timer callback
@@ -271,6 +276,62 @@ int calculateExhale(float bpm, float ratio) {
     return t_cicle * ratio/(ratio+1);
 }
 
+void prints_hmi(void * arg) {
+    while (1) {
+        long start = millis();
+        
+        String msg;
+
+        msg = "$";
+
+        if (mode == PCV) {
+            msg.concat("paw:");
+            msg.concat(sensors.getPRES_PAC_cm3H2O());
+            msg.concat(",");
+            msg.concat("vtidal:");
+            msg.concat(volume);
+            msg.concat(",");
+            msg.concat("flow:");
+            msg.concat(sensors.getFL_PAC());
+            msg.concat(",");
+            msg.concat("ve:");
+            msg.concat(ve);
+            msg.concat(",");
+            msg.concat("pe:");
+            msg.concat(pe);
+        } else if (mode == VCV) {
+            msg.concat("paw:");
+            msg.concat(sensors.getPRES_PAC_cm3H2O());
+            msg.concat(",");
+            msg.concat("vtidal:");
+            msg.concat(volume);
+            msg.concat(",");
+            msg.concat("flow:");
+            msg.concat(sensors.getFL_PAC());
+            msg.concat(",");
+            msg.concat("tInsp:");
+            msg.concat(time_inhale_to_exhale);
+            msg.concat(",");
+            msg.concat("ve:");
+            msg.concat(ve);
+            msg.concat(",");
+            msg.concat("pe:");
+            msg.concat(pe);
+        }
+
+        msg.concat("%");
+        
+        Serial.println(msg);
+        long end = millis() - start;
+        if (100 - end > 0){ 
+            vTaskDelay(100-end);
+        }
+        else {
+            vTaskDelay(1);
+        }
+    }
+}
+
 void prints(void * arg) {
     while (1) {
         //long start = millis();
@@ -332,10 +393,10 @@ void prints(void * arg) {
         Serial.print(effort);
         Serial.print(",");
 
-        Serial.print(total_effort);
+        Serial.print(ve);
         Serial.print(",");
 
-        Serial.print(steady_peep);
+        Serial.print(pe);
         Serial.print(",");  
         
         
@@ -516,6 +577,11 @@ void loop() {
     long init_loop_timestamp = millis();
     // Read sensors
     sensors.update();
+     // Pressure security condition
+    if (sensors.getPRES_PAC_cm3H2O() > 60) {
+        current_state = INHALE_TO_EXHALE;
+        timer_counter = 0;
+    }
 
     // calculate flow and volume
     flow = sensors.getFL_PAC();
@@ -533,6 +599,10 @@ void loop() {
     }
     est_next_volume = volume + sensors.getFL_PAC() * Ts;
 
+    if (pe_aux < sensors.getPRES_PAC_cm3H2O()) {
+        pe_aux = sensors.getPRES_PAC_cm3H2O();
+    }
+
     prev_timestamp = new_timestamp;
 
     // State machine
@@ -543,10 +613,15 @@ void loop() {
             timer_counter = 0;
             break;
         case INHALE_PCV:
-            // Pressure security condition
-            if (sensors.getPRES_PAC_cm3H2O() > 60) {
-                current_state = INHALE_TO_EXHALE;
-                timer_counter = 0;
+           
+
+            if (assisted){
+                error = pres_ref - save_last_ins_pressure;
+                assisted = false;
+            }
+            else{
+                error = pres_ref - sensors.getPRES_PAC_cm3H2O();
+
             }
 
             // Calculating error from current reading to desired output
@@ -614,6 +689,9 @@ void loop() {
             VALVE_EXP = 0;
             break;
         case INHALE_TO_EXHALE:
+            if (volume > volume_peak) {
+                volume_peak = volume;
+            }
 
             if (mode == PCV) {
                 // Tunning PID Kp for next cycle
@@ -657,10 +735,6 @@ void loop() {
                     VALVE_EXP = (120 * timer_counter / time_transition) - 20;
                 }*/
             } else if (mode == VCV) {
-
-                if (volume > volume_peak) {
-                    volume_peak = volume;
-                }
 
                 VALVE_INS = 0;
                 VALVE_EXP = (100 * timer_counter / time_transition) + 40;
@@ -708,8 +782,6 @@ void loop() {
             VALVE_EXP = VALVE_EXP - p1;
             peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
            
-           
-
             // When peep is in steady state, monitor it to trigger ASSISTED_MODE
 
             if (timer_counter > time_exhale_to_inhale/2){
@@ -720,12 +792,11 @@ void loop() {
                     total_effort += effort;
                     if (total_effort > sensibility ){
                         assisted = true;
-                        current_state = EXHALE_TO_INHALE;
-                          
-                    }
-                                                      
+                        current_state = EXHALE_TO_INHALE; 
+                        timer_counter =0;                         
+                    }                                                      
                 }
-                else if (!assisted){
+                if (!assisted){
                     peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
                 }
                 save_last_ins_pressure =  last_ins_pressure;
@@ -751,17 +822,22 @@ void loop() {
             VALVE_EXP = 0;
             delta_u = 0;
             steady_peep = false;
-            assisted = false;
+            //assisted = false;
             total_effort = 0;
 
-            flag = true;
+            flag = true;     
+            
 
+            // Setpoint adaptation in VCV to change INHALE to another state earlier
             if (mode == VCV && !first_time) {
                 volume_ref = volume_ref + (volume_desired - volume_peak);
-                volume_peak = 0;
             }
-
+             // Updating max/peak volume and pressure values
+            ve = volume_peak;            
+            pe = pe_aux;
+            pe_aux = 0;
             pres_ref = pres_peak;
+            volume_peak = 0;
 
             break;
         default:

@@ -19,25 +19,23 @@ https://forum.arduino.cc/index.php?topic=559766.0
 #include "sensors.h"
 #include "valves.h"
 
-volatile int BPM =15;
-volatile float RATIO =2;
-
 float Ts = 0.07;
 
 Sensors sensors;
 Valves valves;
 
 volatile float pres_peak = 10;
-volatile float pres_ref;
-float flow;
+volatile float pres_ref = 0;
+float flow = 0;
 volatile long time_passed = 0;
+volatile int BPM = 15;
+volatile float RATIO = 2;
 
-volatile float est_next_volume;
 
-// Setting state times, in milliseconds
+// Setting state times with default values, in milliseconds
 volatile int time_inhale_to_exhale = 5000;
 volatile int time_exhale_to_inhale = 5000;
-volatile int time_cicle= 60000/BPM;
+volatile int time_cicle = 60000/BPM;
 volatile int time_transition = 200;
 volatile int time_plateau = 2000;
 volatile int time_exp_pause = 2000;
@@ -119,18 +117,19 @@ float volume;
 float max_flux = 30;
 float inlet_flux_ref = max_flux;
 float volume_desired = 600;
-float volume_ref = volume_desired; // May change over time to avoid error
+float volume_ref = volume_desired; // May change over time to minimize uncontrollable error
 float volume_peak = 0;
 float last_inlet_flux_ref;
 float last_inlet_flux;
 float last_VALVE_INS;
 float adjusted_VALVE_INS;
+volatile float est_next_volume;
 
+// Assisted mode variables
 bool assisted = false;
-float effort =0;
-float total_effort =0;
-float sensibility =1;
-
+float effort = 0;
+float total_effort = 0;
+float sensibility = 1;
 
 // Custom functions
 
@@ -286,7 +285,6 @@ void prints(void * arg) {
         Serial.print(sensors.getFi02());
         Serial.print(","); 
 
-
         Serial.print(flow);
         Serial.print(",");
 
@@ -359,105 +357,121 @@ void commands(void * arg) {
             // Lê toda string recebida
             String received = readStringSerial();
 
-            String part01 = getValue(received, ',', 0);
-            String part02 = getValue(received, ',', 1);
-
-            float value = part02.toFloat();
+            String part01 = getValue(received, '$', 0);
+            String part02 = getValue(received, '$', 1);
+            part02 = getValue(part02, '%', 0);
 
             if (part01.equals("START")) {
                 current_state = EXHALE_TO_INHALE;
                 timerAlarmEnable(timer);
-
-                if (part02.equals("PCV")) {
-                    mode = PCV;
-                } else if (part02.equals("VCV")) {
-                    mode = VCV;
-                } else {
-                    current_state = IDLE;
-                    timerAlarmDisable(timer);
-                }
-
-            } else if (part01.equals("STOP")){
+            } else if (part01.equals("STOP")) {
                 current_state = IDLE;
-                volume =0;
-            } else if (part01.equals("AUTO")) {
-                valves.setAUTO_SEC_VALVE(bool(value));
-            } else if (part01.equals("MANUAL")) {
-                valves.setMANUAL_SEC_VALVE(bool(value));
-            } else if (part01.equals("VALVE_INS")) {
-                valves.setINS_VALVE(value);
-            } else if (part01.equals("BPM")) {
-                BPM = getValue(part02, ';', 0).toFloat();
-                time_inhale_to_exhale = calculateInhale(BPM,RATIO);
-                time_exhale_to_inhale = calculateExhale(BPM,RATIO);
-                time_cicle = 60000/ getValue(part02, ';', 0).toFloat();
-            }else if (part01.equals("RATIO")){
-                RATIO = getValue(part02, ';', 0).toFloat();
-                time_inhale_to_exhale = calculateInhale(BPM,RATIO);
-                time_exhale_to_inhale = calculateExhale(BPM,RATIO);
-            
-            }else if (part01.equals("PEAK")) {
-                pres_peak = value;
+                volume = 0;
+            } else if (part01.equals("SET")) {
+                int i = 0;
+                String cmd = getValue(part02, ',', 0); 
+                while (!cmd.equals("")) {
+                    String parameter = getValue(cmd, ':', 0);
+                    String value = getValue(cmd, ':', 1);
 
-                // Defining PID adaptive tunning
-                if (pres_peak <= 20) {
-                    Kp = 2.5;
-                    Ki = 3;
-                    Kd = 3;
-                } else if (peep_value < 10) {
-                    Kp = 2;
-                    Ki = 3;
-                    Kd = 2;
-                } else {
-                    Kp = 0.9;
-                    Ki = 3;
-                    Kd = 1.25;
+                    
+                    if (parameter.equals("OP")) {
+                        if (value.equals("PCV")) {
+                            mode = PCV;
+                        } else {
+                            mode = VCV;
+                        }
+                    } else if (parameter.equals("RR")) {
+                        BPM = value.toFloat();
+                        time_inhale_to_exhale = calculateInhale(BPM,RATIO);
+                        time_exhale_to_inhale = calculateExhale(BPM,RATIO);
+                        time_cicle = 60000/BPM;
+                    } else if (parameter.equals("IE")) {
+                        RATIO = value.toFloat();
+                        time_inhale_to_exhale = calculateInhale(BPM,RATIO);
+                        time_exhale_to_inhale = calculateExhale(BPM,RATIO);
+                    } else if (parameter.equals("PIP")) {
+                        pres_peak = value.toFloat();
+                        // Defining PID adaptive tunning
+                        if (pres_peak <= 20) {
+                            Kp = 2.5;
+                            Ki = 3;
+                            Kd = 3;
+                        } else if (peep_value < 10) {
+                            Kp = 2;
+                            Ki = 3;
+                            Kd = 2;
+                        } else {
+                            Kp = 0.9;
+                            Ki = 3;
+                            Kd = 1.25;
+                        }
+
+                        first_time = true;
+                    } else if (parameter.equals("PEEP")) {
+                        peep_value = value.toFloat();
+
+                        // Defining PID adaptive tunning
+                        if (pres_peak <= 20) {
+                            Kp = 2.5;
+                            Ki = 3;
+                            Kd = 3;
+                        } else if (peep_value < 10) {
+                            Kp = 2;
+                            Ki = 3;
+                            Kd = 2;
+                        } else {
+                            Kp = 0.9;
+                            Ki = 3;
+                            Kd = 1.25;
+                        }
+
+                        first_time = true;
+                    } else if (parameter.equals("VOL")) {
+                        volume_desired = value.toFloat();
+                        volume_ref = volume_desired;
+                    } else if (parameter.equals("FLOW")) {
+                        max_flux = value.toFloat();
+                        adjusted_VALVE_INS = 1.3 * max_flux;
+                    } else if (parameter.equals("PINSP")) {
+                        if (value.toInt() == 0) {
+                            ins_pause = false;
+                        } else {
+                            ins_pause = true;
+                        }
+                    } else if (parameter.equals("PEXP")) {
+                        if (value.toInt() == 0) {
+                            exp_pause = false;
+                        } else {
+                            exp_pause = true;
+                        }
+                    } else if (parameter.equals("SENSIBILITY")) {
+                        sensibility = value.toFloat();
+                    }
+
+                    // Testing/Debugging parameters
+                    // --------------------
+                    else if (parameter.equals("KP")) {
+                        Kp = value.toFloat();
+                    } else if (parameter.equals("KI")) {
+                        Ki = value.toFloat();
+                    } else if (parameter.equals("KD")) {
+                        Kd = value.toFloat();
+                    } else if (parameter.equals("FILTER")) {
+                        sensors.setFilterWeight(value.toFloat());
+                    } else if (parameter.equals("ALPHA")) {
+                        alpha = value.toFloat();
+                    }
+
+                    // --------------------
+
+                    i = i + 1;
+                    cmd = getValue(part02, ',', i); 
                 }
 
-                first_time = true;
-            } else if (part01.equals("PID")) {
-                Kp = getValue(part02, ';', 0).toFloat();
-                Ki = getValue(part02, ';', 1).toFloat();
-                Kd = getValue(part02, ';', 2).toFloat();
-                tau_aw = sqrt(1 / (Ki * Kd));
-            } else if (part01.equals("FILTER")) {
-                sensors.setFilterWeight(value);
-            } else if (part01.equals("ALPHA")) {
-                alpha = value;
-            } else if (part01.equals("PEEP")) {
-                peep_value = value;
-                
-                // Defining PID adaptive tunning
-                if (pres_peak <= 20) {
-                    Kp = 2.5;
-                    Ki = 3;
-                    Kd = 3;
-                } else if (peep_value < 10) {
-                    Kp = 2;
-                    Ki = 3;
-                    Kd = 2;
-                } else {
-                    Kp = 0.9;
-                    Ki = 3;
-                    Kd = 1.25;
-                }
-                first_time = true;
-            } else if (part01.equals("TEST")) {
-                current_state = TEST;
-            } else if (part01.equals("INS_HOLD")) {
-                ins_pause = true;
-            } else if (part01.equals("EXP_HOLD")) {
-                exp_pause = true;
-            } else if (part01.equals("MAX_FLUX")) {
-                max_flux = value;
-                adjusted_VALVE_INS = 1.3 * max_flux;
-            } else if (part01.equals("VOLUME")) {
-                volume_desired = value;
-                volume_ref = volume_desired;
-            } else if (part01.equals("SENSIBILITY")) {
-                sensibility = value;
+            } else if (part01.equals("CONNECT")) {
+                Serial.println("OK");
             }
-
             
         }
         vTaskDelay(1);

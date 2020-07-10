@@ -5,7 +5,7 @@ Sensors::Sensors(float filter_weight)
   // I2C addresses for Analog-Digital Convertes
   this->ads1 = Adafruit_ADS1115(0x48);
   this->ads2 = Adafruit_ADS1115(0x49);
-  this->ads3 =  Adafruit_ADS1115(0x50);
+  this->ads3 =  Adafruit_ADS1115(0x4A);
   this->measflow = SFM3000wedo(64);
 
   this->measflow.init();
@@ -28,7 +28,7 @@ Sensors::Sensors(float filter_weight)
   //float ads3_InputRange = 0.256f;
   float ads3_InputRange = 6.144f;
   this->ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
-  this->ads3_bit_Voltage = (ads3_InputRange*2)/ (ADC_16BIT_MAX-1);
+  this->ads3_bit_Voltage = (ads3_InputRange * 2) / (ADC_16BIT_MAX - 1);
 
 
   // Initializing attributes 
@@ -53,14 +53,14 @@ void Sensors::update()
     int16_t ads2_ch1 = 0;
     int16_t ads2_ch2 = 0;
     //int16_t ads2_ch3 = 0;
-    int16_t ads3_ch0 =0;
+    int16_t ads3_ch0 = 0;
 
     // Getting sensors data
     float ads1_Voltage_ch0 = 0.0f;
     float ads2_Voltage_ch0 = 0.0f;
     float ads2_Voltage_ch1 = 0.0f;
     float ads2_Voltage_ch2 = 0.0f;
-    float ads3_Voltage_ch0 =0.0f;
+    float ads3_Voltage_ch0 = 0.0f;
     //float ads2_Voltage_ch3 = 0.0f;
 
     // Reading and converting ADC Raw data to Voltage

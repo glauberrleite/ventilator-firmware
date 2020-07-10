@@ -58,10 +58,18 @@ void Valves::setEXP_VALVE(float level)
 
 void Valves::setMANUAL_SEC_VALVE(bool on)
 {
-    digitalWrite(MANUAL_SEC_VALVE_PIN, on);
+    if (on) {   
+        digitalWrite(MANUAL_SEC_VALVE_PIN, HIGH);
+    } else {
+        digitalWrite(MANUAL_SEC_VALVE_PIN, LOW);
+    }
 }
 
 void Valves::setAUTO_SEC_VALVE(bool on)
 {
-    digitalWrite(AUTO_SEC_VALVE_PIN, on);
+    if (on) {   
+        digitalWrite(AUTO_SEC_VALVE_PIN, HIGH);
+    } else {
+        digitalWrite(AUTO_SEC_VALVE_PIN, LOW);
+    }
 }

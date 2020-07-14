@@ -234,10 +234,17 @@ float Sensors::getDIFF_PRES_PAC_PSI()
 
 float Sensors::getFlowSFM3300()
 {
+ 
   return (measflow.getvalue()-32768)/120.0;
 }
 
 float Sensors::getFi02()
 {
   return this->fio2;
+}
+
+void Sensors::resetSFM()
+{
+  this->measflow = SFM3000wedo(64);
+  this->measflow.init();
 }

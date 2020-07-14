@@ -64,6 +64,8 @@ class Sensors {
 
         float getFi02();
 
+        void resetSFM();
+
     private:
         //Functions below are called in update() with the readings from corresponding ports set as parameters
         //Equations used in this implementation were educed from datasheet info

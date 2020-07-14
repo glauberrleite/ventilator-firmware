@@ -42,6 +42,12 @@ unsigned long new_timestamp;
 volatile long time_passed = 0;
 
 typedef enum {
+    SENDING,
+    NOT_SENDING
+}
+transmission_state;
+
+typedef enum {
     IDLE,
     INHALE_PCV,
     PLATEAU,
@@ -62,6 +68,7 @@ resp_mode;
 
 volatile state current_state;
 volatile resp_mode mode;
+volatile transmission_state transmission;
 
 volatile bool flag = false;
 
@@ -321,10 +328,12 @@ void prints_hmi(void * arg) {
 
         msg.concat("%");
 
-        Serial.println(msg);
+        if (transmission == SENDING) {
+            Serial.println(msg);
+        }
         long end = millis() - start;
-        if (100 - end > 0) {
-            vTaskDelay(100 - end);
+        if (166 - end > 0) {
+            vTaskDelay(166 - end);
         } else {
             vTaskDelay(1);
         }
@@ -395,14 +404,12 @@ void prints(void * arg) {
         Serial.print(",");
 
 
-
-
         Serial.println();
         //long end = millis() - start;
-        /*if (100-end >0){ 
-        vTaskDelay(100-end);
-        }
-        else {*/
+        //if (166 - end > 0){ 
+        //    vTaskDelay(166 - end);
+        //}
+        //else {
         vTaskDelay(1);
         //}
     }
@@ -411,7 +418,8 @@ void commands(void * arg) {
     while (1) {
         if (Serial.available() > 0) {
             // Lê toda string recebida
-            String received = readStringSerial();
+            //String received = readStringSerial();
+            String received = Serial.readStringUntil('\n');
 
             String part01 = getValue(received, '$', 0);
             String part02 = getValue(received, '$', 1);
@@ -432,7 +440,7 @@ void commands(void * arg) {
 
 
                     if (parameter.equals("OP")) {
-                        if (value.equals("PCV")) {
+                        if (value.toFloat() == 0) {
                             mode = PCV;
                         } else {
                             mode = VCV;
@@ -535,6 +543,10 @@ void commands(void * arg) {
 
             } else if (part01.equals("CONNECT")) {
                 Serial.println("OK");
+            } else if (part01.equals("SEND_DATA")) {
+                transmission = SENDING;
+            } else if (part01.equals("STOP_SENDING")) {
+                transmission = NOT_SENDING;
             }
 
         }
@@ -553,10 +565,11 @@ void setup() {
 
     // Stating State
     current_state = IDLE;
+    transmission = NOT_SENDING;
 
     // Timer config
     timer = timerBegin(0, 80, true);
-    timerAttachInterrupt(timer, & onTimer, true);
+    timerAttachInterrupt(timer, &onTimer, true);
     timerAlarmWrite(timer, 1000, true);
     timer_counter = 0;
 
@@ -568,7 +581,7 @@ void setup() {
     flow = 0;
     volume = 0;
 
-    xTaskCreatePinnedToCore(prints, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
+    xTaskCreatePinnedToCore(prints_hmi, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
     xTaskCreatePinnedToCore(commands, "commands", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
@@ -584,7 +597,7 @@ void loop() {
     // Pressure security condition
     if (sensors.getPRES_PAC_cm3H2O() > 60) {
         current_state = INHALE_TO_EXHALE;
-        SEC_VALVE = true;
+        //SEC_VALVE = true;
         timer_counter = 0;
     } else {
         //SEC_VALVE = false;

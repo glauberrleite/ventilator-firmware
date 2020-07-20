@@ -3,6 +3,7 @@
         "cmath": "cpp",
         "complex": "cpp",
         "*.tcc": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "type_traits": "cpp"
     }
 }

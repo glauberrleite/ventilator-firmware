@@ -29,7 +29,7 @@ void SFM3000wedo::init()
 	Wire.begin();
 	Serial.begin(9600);
 	delay(1000);
-	Wire.beginTransmission(byte(mI2cAddress)); // transmit to device with I2C mI2cAddress
+	//Wire.beginTransmission(byte(mI2cAddress)); // transmit to device with I2C mI2cAddress
 	Wire.beginTransmission(byte(mI2cAddress)); // transmit to device with I2C mI2cAddress
 	Wire.write(byte(0x10));      //
 	Wire.write(byte(0x00));      //
@@ -77,6 +77,16 @@ float SFM3000wedo::getvalue()
 	//float Flow = (float)a;
 	int Flow=a;
 	return Flow;
+}
+
+void SFM3000wedo::resetSFM(){
+	//Wire.beginTransmission(byte(mI2cAddress)); // transmit to device with I2C mI2cAddress
+	Wire.beginTransmission(byte(mI2cAddress)); // transmit to device with I2C mI2cAddress
+	Wire.write(byte(0x20));      //
+	Wire.write(byte(0x00));      //
+	Wire.endTransmission();
+	delay(100);
+
 }
 
 uint8_t SFM3000wedo::crc8(const uint8_t data, uint8_t crc)

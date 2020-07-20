@@ -131,6 +131,7 @@ float last_inlet_flux;
 float last_VALVE_INS;
 float adjusted_VALVE_INS;
 volatile float est_next_volume;
+bool is_square = false;
 
 // Assisted mode variables
 bool assisted = false;
@@ -400,7 +401,10 @@ void prints(void * arg) {
         Serial.print(ve);
         Serial.print(",");
 
-        Serial.print(SEC_VALVE);
+        Serial.print(p1);
+        Serial.print(",");
+
+        Serial.print(peep_error);
         Serial.print(",");
 
 
@@ -494,9 +498,11 @@ void commands(void * arg) {
                     } else if (parameter.equals("VOL")) {
                         volume_desired = value.toFloat();
                         volume_ref = volume_desired;
+                        first_time = true;
                     } else if (parameter.equals("FLOW")) {
                         max_flux = value.toFloat();
                         adjusted_VALVE_INS = 1.3 * max_flux;
+                        first_time = true;
                     } else if (parameter.equals("PINSP")) {
                         if (value.toInt() == 0) {
                             ins_pause = false;
@@ -511,7 +517,6 @@ void commands(void * arg) {
                         }
                     } else if (parameter.equals("SENSIT")) {
                         // TODO
-                    } else if (parameter.equals("SENSIV")) {
                         sensibility = value.toFloat();
                     }
 
@@ -595,6 +600,10 @@ void loop() {
     // Read sensors
     sensors.update();
     // Pressure security condition
+
+    if (sensors.getFL_PAC()>250){
+        sensors.resetSFM();
+    }
     if (sensors.getPRES_PAC_cm3H2O() > 60) {
         current_state = INHALE_TO_EXHALE;
         //SEC_VALVE = true;
@@ -683,19 +692,37 @@ void loop() {
             last_inhale_pressure = sensors.getPRES_PAC_cm3H2O();
             break;
         case INHALE_VCV:
-
+            
             if (volume < volume_ref) {
-                // If constant flux
-                inlet_flux_ref = max_flux;
-                // If decreasing flux
-                // TODO
-                // inlet_flux_ref = ...
-
-                if (first_time) {
-                    VALVE_INS = 1.3 * max_flux;
+                
+                if (is_square){    
+                    inlet_flux_ref = max_flux;                
+                    if (first_time) {
+                        VALVE_INS = 1.3 * max_flux;
+                    } else {
+                        VALVE_INS = adjusted_VALVE_INS;
+                    }
                 } else {
-                    VALVE_INS = adjusted_VALVE_INS;
-                }
+                    if (timer_counter< 350){//ainda não chegou no maxflux{
+                    inlet_flux_ref = max_flux;
+                        if (first_time) {
+                            VALVE_INS = 1.3 * max_flux;
+                        } else {
+                            VALVE_INS = adjusted_VALVE_INS;
+                        }
+                    last_inlet_flux = sensors.getFL_PAC();
+                    last_inlet_flux_ref = inlet_flux_ref;
+                    last_VALVE_INS = VALVE_INS;                                      
+                    }
+                    else{             
+                        inlet_flux_ref = inlet_flux_ref-0.2 > 0 ? inlet_flux_ref-0.2 : 0;
+                        VALVE_INS = inlet_flux_ref *1.3;                           
+
+
+                    }     
+                    
+
+                }                
             } else {
                 if (!ins_pause) {
                     current_state = INHALE_TO_EXHALE;
@@ -705,9 +732,13 @@ void loop() {
                 }
 
                 timer_counter = 0;
-                last_inlet_flux = sensors.getFL_PAC();
-                last_inlet_flux_ref = inlet_flux_ref;
-                last_VALVE_INS = VALVE_INS;
+                if (is_square){
+                    last_inlet_flux = sensors.getFL_PAC();
+                    last_inlet_flux_ref = inlet_flux_ref;
+                    last_VALVE_INS = VALVE_INS;
+
+                }
+
                 VALVE_INS = 0;
             }
 
@@ -762,7 +793,7 @@ void loop() {
             } else if (mode == VCV) {
 
                 VALVE_INS = 0;
-                VALVE_EXP = (100 * timer_counter / time_transition) + 40;
+                VALVE_EXP = (50 * timer_counter / time_transition) + 50;
                 VALVE_EXP = VALVE_EXP > 100 ? 100 : VALVE_EXP;
                 VALVE_EXP = VALVE_EXP < 0 ? 0 : VALVE_EXP;
 
@@ -818,14 +849,15 @@ void loop() {
                         timer_counter = 0;
                     }
                 }
-                if (!assisted) {
-                    peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
-                }
+
                 save_last_ins_pressure = last_ins_pressure;
             } else {
                 save_last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
 
             }
+ 
+            peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
+            
             break;
 
         case EXP_PAUSE:

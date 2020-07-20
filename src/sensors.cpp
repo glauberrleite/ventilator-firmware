@@ -245,6 +245,6 @@ float Sensors::getFi02()
 
 void Sensors::resetSFM()
 {
-  this->measflow = SFM3000wedo(64);
-  this->measflow.init();
+  this->measflow.resetSFM();
+  //this->measflow.init();
 }

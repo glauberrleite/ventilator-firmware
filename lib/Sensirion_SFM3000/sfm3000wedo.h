@@ -31,6 +31,7 @@ class SFM3000wedo {
 	SFM3000wedo(int i2cAddress = 64);
     void init();
     float getvalue();
+    void resetSFM();
     
  
   private:

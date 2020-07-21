@@ -4,8 +4,8 @@
 #define   EXP_PROP_VALVE_PIN    18
 #define   INS_PROP_VALVE_CH     0
 #define   EXP_PROP_VALVE_CH     1
-#define   MANUAL_SEC_VALVE_PIN  25
-#define   AUTO_SEC_VALVE_PIN    33
+#define   MANUAL_SEC_VALVE_PIN  33
+#define   AUTO_SEC_VALVE_PIN    25
 
 class Valves {
     public:

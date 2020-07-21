@@ -132,6 +132,7 @@ float last_VALVE_INS;
 float adjusted_VALVE_INS;
 volatile float est_next_volume;
 bool is_square = false;
+float ajuste_rampa =0.5;
 
 // Assisted mode variables
 bool assisted = false;
@@ -143,6 +144,7 @@ float sensibility = 1;
 volatile float ve = 0;
 volatile float pe = 0;
 float pe_aux = 0;
+bool active_valve_sec = false;
 
 // Custom functions
 
@@ -407,6 +409,7 @@ void prints(void * arg) {
         Serial.print(peep_error);
         Serial.print(",");
 
+        Serial.print(SEC_VALVE);
 
         Serial.println();
         //long end = millis() - start;
@@ -498,10 +501,12 @@ void commands(void * arg) {
                     } else if (parameter.equals("VOL")) {
                         volume_desired = value.toFloat();
                         volume_ref = volume_desired;
+                        ajuste_rampa = (max_flux/volume_desired)*10;
                         first_time = true;
                     } else if (parameter.equals("FLOW")) {
                         max_flux = value.toFloat();
                         adjusted_VALVE_INS = 1.3 * max_flux;
+                        ajuste_rampa = (max_flux/volume_desired)*10;
                         first_time = true;
                     } else if (parameter.equals("PINSP")) {
                         if (value.toInt() == 0) {
@@ -532,6 +537,8 @@ void commands(void * arg) {
                         sensors.setFilterWeight(value.toFloat());
                     } else if (parameter.equals("ALPHA")) {
                         alpha = value.toFloat();
+                    } else if (parameter.equals("AJUSTE")) {
+                        ajuste_rampa = value.toFloat();
                     } else if (parameter.equals("SEC_VALVE")) {
                         if (value.toInt() == 0) {
                             SEC_VALVE = false;
@@ -563,10 +570,12 @@ void commands(void * arg) {
 
 void setup() {
     Serial.begin(9600);
+    Wire.begin();
 
     // Sensors and Valves init
     sensors = Sensors();
     valves = Valves();
+
 
     // Stating State
     current_state = IDLE;
@@ -599,11 +608,14 @@ void loop() {
     long init_loop_timestamp = millis();
     // Read sensors
     sensors.update();
+    Serial.print("FL: ");Serial.println(sensors.getFL_PAC());
+    if (sensors.getFL_PAC()>250){
+        ESP.restart();
+    }
+
     // Pressure security condition
 
-    if (sensors.getFL_PAC()>250){
-        sensors.resetSFM();
-    }
+
     if (sensors.getPRES_PAC_cm3H2O() > 60) {
         current_state = INHALE_TO_EXHALE;
         //SEC_VALVE = true;
@@ -645,11 +657,10 @@ void loop() {
 
             // Testing SEC VALVE
             // -----------
-            /*if (sensors.getPRES_PAC_cm3H2O() > pres_ref) {
-                SEC_VALVE = true;
-            } else {
-                SEC_VALVE = false;
-            }*/
+            if (sensors.getPRES_PAC_cm3H2O() > pres_ref+1) {
+                active_valve_sec = true;                
+            } 
+
             // -----------
 
 
@@ -715,8 +726,8 @@ void loop() {
                     last_VALVE_INS = VALVE_INS;                                      
                     }
                     else{             
-                        inlet_flux_ref = inlet_flux_ref-0.2 > 0 ? inlet_flux_ref-0.2 : 0;
-                        VALVE_INS = inlet_flux_ref *1.3;                           
+                        inlet_flux_ref = inlet_flux_ref-ajuste_rampa > 5 ? inlet_flux_ref-ajuste_rampa: 5;
+                        VALVE_INS = inlet_flux_ref*0.9;                           
 
 
                     }     
@@ -748,6 +759,7 @@ void loop() {
             VALVE_EXP = 0;
             break;
         case INHALE_TO_EXHALE:
+            active_valve_sec = false;
             if (volume > volume_peak) {
                 volume_peak = volume;
             }
@@ -849,13 +861,10 @@ void loop() {
                         timer_counter = 0;
                     }
                 }
-
                 save_last_ins_pressure = last_ins_pressure;
             } else {
                 save_last_ins_pressure = sensors.getPRES_PAC_cm3H2O();
-
-            }
- 
+            } 
             peep_error = peep_value - sensors.getPRES_PAC_cm3H2O();
             
             break;
@@ -900,7 +909,13 @@ void loop() {
 
     valves.setINS_VALVE(VALVE_INS);
     valves.setEXP_VALVE(VALVE_EXP);
-    //valves.setAUTO_SEC_VALVE(SEC_VALVE);
+    if(active_valve_sec){
+        SEC_VALVE = true;
+    }
+    else {
+        SEC_VALVE = false;
+    }
+    valves.setAUTO_SEC_VALVE(SEC_VALVE);
 
     // Assert realtime iteration delay (Default operation time is 60 ms)
     long end_loop_timestamp = millis();

@@ -1,7 +1,12 @@
 #include "sensors.h"
 
+
 Sensors::Sensors(float filter_weight)
 {
+  int i2cbusstatus;
+
+  i2cbusstatus= I2Cbus_clear(SDA,SCL);
+  Serial.println( I2Cbus_statusstr(i2cbusstatus) );
   // I2C addresses for Analog-Digital Convertes
   this->ads1 = Adafruit_ADS1115(0x48);
   this->ads2 = Adafruit_ADS1115(0x49);

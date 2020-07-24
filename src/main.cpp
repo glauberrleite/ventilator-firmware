@@ -471,7 +471,7 @@ void commands(void * arg) {
                         } else if (peep_value < 10) {
                             Kp = 2;
                             Ki = 3;
-                            Kd = 2;
+                            Kd = 0.5;
                         } else {
                             Kp = 0.9;
                             Ki = 3;
@@ -490,7 +490,7 @@ void commands(void * arg) {
                         } else if (peep_value < 10) {
                             Kp = 2;
                             Ki = 3;
-                            Kd = 2;
+                            Kd = 0.5;
                         } else {
                             Kp = 0.9;
                             Ki = 3;
@@ -498,7 +498,7 @@ void commands(void * arg) {
                         }
 
                         first_time = true;
-                    } else if (parameter.equals("VOL")) {
+                    } else if (parameter.equals("VOLUME")) {
                         volume_desired = value.toFloat();
                         volume_ref = volume_desired;
                         ajuste_rampa = (max_flux/volume_desired)*10;
@@ -569,11 +569,14 @@ void commands(void * arg) {
 // Main setup and loop
 
 void setup() {
+    
     Serial.begin(9600);
-    Wire.begin();
+
+    delay(1000);
 
     // Sensors and Valves init
     sensors = Sensors();
+    delay(1000);
     valves = Valves();
 
 
@@ -608,10 +611,10 @@ void loop() {
     long init_loop_timestamp = millis();
     // Read sensors
     sensors.update();
-    Serial.print("FL: ");Serial.println(sensors.getFL_PAC());
+    /*Serial.print("FL: ");Serial.println(sensors.getFL_PAC());
     if (sensors.getFL_PAC()>250){
         ESP.restart();
-    }
+    }*/
 
     // Pressure security condition
 

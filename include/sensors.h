@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
 #include "sfm3000wedo.h"
+#include "I2Cbus.h" 
+
 
 #define   ADC_16BIT_MAX     65536
 #define   M_PI              3.14159265358979323846

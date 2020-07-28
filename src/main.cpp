@@ -3,6 +3,7 @@
  *  Instituto de Computação - Universidade Federal de Alagoas
  *  @author glauberrleite
  *  @author vangasse
+ *  @author cesaraugusto
  */
 
 /*
@@ -542,8 +543,14 @@ void commands(void * arg) {
                     } else if (parameter.equals("SEC_VALVE")) {
                         if (value.toInt() == 0) {
                             SEC_VALVE = false;
-                        } else {
+                        } else if (value.toInt() == 1){
                             SEC_VALVE = true;
+                        }
+                    }else if (parameter.equals("WAVE")) {
+                        if (value.toInt() == 0) {
+                            is_square = false;
+                        } else if (value.toInt() == 1){
+                            is_square = true;
                         }
                     }
 
@@ -598,7 +605,7 @@ void setup() {
     flow = 0;
     volume = 0;
 
-    xTaskCreatePinnedToCore(prints_hmi, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
+    xTaskCreatePinnedToCore(prints, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
     xTaskCreatePinnedToCore(commands, "commands", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
@@ -660,9 +667,9 @@ void loop() {
 
             // Testing SEC VALVE
             // -----------
-            if (sensors.getPRES_PAC_cm3H2O() > pres_ref+1) {
+            /*if (sensors.getPRES_PAC_cm3H2O() > pres_ref+1) {
                 active_valve_sec = true;                
-            } 
+            } */
 
             // -----------
 

@@ -3,6 +3,7 @@
 
 Sensors::Sensors(float filter_weight)
 {
+  pinMode(SFM_PIN, OUTPUT);
   int i2cbusstatus;
 
   i2cbusstatus= I2Cbus_clear(SDA,SCL);
@@ -248,8 +249,20 @@ float Sensors::getFi02()
   return this->fio2;
 }
 
+void Sensors::onSFM(bool on){
+   if (on) {   
+        digitalWrite(SFM_PIN, HIGH);
+    } else {
+        digitalWrite(SFM_PIN, LOW);
+    }
+
+}
+
 void Sensors::resetSFM()
 {
-  this->measflow.resetSFM();
-  //this->measflow.init();
+  onSFM(false);
+  delay(100);
+  onSFM(true);
+  this->measflow = SFM3000wedo(64);
+  this->measflow.init();
 }

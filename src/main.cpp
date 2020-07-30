@@ -554,6 +554,7 @@ void commands(void * arg) {
                         }
                     }
 
+
                     // --------------------
 
                     i = i + 1;
@@ -583,8 +584,10 @@ void setup() {
 
     // Sensors and Valves init
     sensors = Sensors();
+    sensors.onSFM(true);
     delay(1000);
     valves = Valves();
+    
 
 
     // Stating State
@@ -605,7 +608,7 @@ void setup() {
     flow = 0;
     volume = 0;
 
-    xTaskCreatePinnedToCore(prints, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
+    xTaskCreatePinnedToCore(prints_hmi, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
     xTaskCreatePinnedToCore(commands, "commands", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
@@ -617,11 +620,13 @@ void loop() {
 
     long init_loop_timestamp = millis();
     // Read sensors
+    sensors.onSFM(true);
     sensors.update();
-    /*Serial.print("FL: ");Serial.println(sensors.getFL_PAC());
-    if (sensors.getFL_PAC()>250){
-        ESP.restart();
-    }*/
+    //Serial.print("FL: ");Serial.println(sensors.getFL_PAC());
+    if (abs(sensors.getFL_PAC())>250){
+        sensors.resetSFM();
+    }
+    
 
     // Pressure security condition
 

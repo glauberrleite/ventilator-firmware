@@ -7,6 +7,7 @@
 
 #define   ADC_16BIT_MAX     65536
 #define   M_PI              3.14159265358979323846
+#define   SFM_PIN            12
 
 class Sensors {
     protected:
@@ -67,6 +68,7 @@ class Sensors {
         float getFi02();
 
         void resetSFM();
+        void onSFM(bool on);
 
     private:
         //Functions below are called in update() with the readings from corresponding ports set as parameters

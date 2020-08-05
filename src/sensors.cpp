@@ -13,13 +13,12 @@ Sensors::Sensors(float filter_weight)
   this->ads2 = Adafruit_ADS1115(0x49);
   this->ads3 =  Adafruit_ADS1115(0x4A);
   this->measflow = SFM3000wedo(64);
-
   this->measflow.init();
   
   // ADS1115 Analog Digital Converter configs
   this->ads1.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
   this->ads2.setGain(GAIN_TWOTHIRDS);      // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  this->ads3.setGain(GAIN_TWOTHIRDS);
+  this->ads3.setGain(GAIN_EIGHT);
   //  ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 2mV      0.125mV
   //  ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
   //  ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.5mV    0.03125mV
@@ -32,7 +31,7 @@ Sensors::Sensors(float filter_weight)
 
   float ads_InputRange = 6.144f;
   //float ads3_InputRange = 0.256f;
-  float ads3_InputRange = 6.144f;
+  float ads3_InputRange = 0.512f;
   this->ads_bit_Voltage = (ads_InputRange * 2) / (ADC_16BIT_MAX - 1);
   this->ads3_bit_Voltage = (ads3_InputRange * 2) / (ADC_16BIT_MAX - 1);
 
@@ -66,7 +65,7 @@ void Sensors::update()
     float ads2_Voltage_ch0 = 0.0f;
     float ads2_Voltage_ch1 = 0.0f;
     float ads2_Voltage_ch2 = 0.0f;
-    float ads3_Voltage_ch0 = 0.0f;
+    float ads3_Voltage_ch0 = 0.0000f;
     //float ads2_Voltage_ch3 = 0.0f;
 
     // Reading and converting ADC Raw data to Voltage
@@ -74,7 +73,7 @@ void Sensors::update()
     ads2_ch0 = this->ads2.readADC_SingleEnded(0);
     ads2_ch1 = this->ads2.readADC_SingleEnded(1);
     ads2_ch2 = this->ads2.readADC_SingleEnded(2);
-    ads3_ch0 = this->ads3.readADC_SingleEnded(0);
+    ads3_ch0 = this->ads3.readADC_Differential_0_1();
 
     //ads2_ch3 = this->ads2.readADC_SingleEnded(3);
     

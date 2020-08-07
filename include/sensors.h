@@ -65,7 +65,7 @@ class Sensors {
         float getDIFF_PRES_PAC_cm3H2O();
         float getDIFF_PRES_PAC_PSI();
 
-        float getFi02();
+        float getFi02(float pe);
 
         void resetSFM();
         void onSFM(bool on);

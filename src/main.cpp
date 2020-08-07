@@ -311,8 +311,8 @@ void prints_hmi(void * arg) {
             msg.concat("pe:");
             msg.concat(pe);
             msg.concat(",");
-            msg.concat("o2:");
-            msg.concat(sensors.getFi02());
+            msg.concat("fio2:");
+            msg.concat(sensors.getFi02(pe));
         } else if (mode == VCV) {
             msg.concat("paw:");
             msg.concat(sensors.getPRES_PAC_cm3H2O());
@@ -332,8 +332,8 @@ void prints_hmi(void * arg) {
             msg.concat("pe:");
             msg.concat(pe);
             msg.concat(",");
-            msg.concat("o2:");
-            msg.concat(sensors.getFi02());
+            msg.concat("fio2:");
+            msg.concat(sensors.getFi02(pe));
         }
 
         msg.concat("%");
@@ -413,7 +413,7 @@ void prints(void * arg) {
         Serial.print(p1);
         Serial.print(",");
 
-        Serial.print(sensors.getFi02(),4);
+        Serial.print(sensors.getFi02(pe),4);
         Serial.print(",");
 
         Serial.print(SEC_VALVE);
@@ -615,7 +615,7 @@ void setup() {
     flow = 0;
     volume = 0;
 
-    xTaskCreatePinnedToCore(prints, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
+    xTaskCreatePinnedToCore(prints_hmi, "prints", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
     xTaskCreatePinnedToCore(commands, "commands", 8192, NULL, 1, NULL, PRO_CPU_NUM); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
     delay(1);
@@ -671,7 +671,7 @@ void loop() {
     // State machine
     switch (current_state) {
         case IDLE:
-            VALVE_INS = 10;
+            VALVE_INS = 0;
             VALVE_EXP = 100;
             timer_counter = 0;
             break;

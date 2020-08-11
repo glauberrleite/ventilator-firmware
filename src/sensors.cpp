@@ -246,7 +246,8 @@ float Sensors::getFlowSFM3300()
 float Sensors::getFi02(float pe){
 
   //fitobject = fit([o2meas.voltage,o2meas.pres],o2meas.fio2,'poly22')
-  return 5.041 +  2.114*fio2 *1000 - 1.197*pe - 0.008447*pow(fio2 *1000,2) + 0.001279*pe*fio2 *1000 + 0.01813*pow(pe,2);
+  //return 5.041 +  2.114*fio2 *1000 - 1.197*pe - 0.008447*pow(fio2 *1000,2) + 0.001279*pe*fio2 *1000 + 0.01813*pow(pe,2);
+  return 0.9532 +  1.942*fio2 *1000 - 0.658*pe - 0.006343*pow(fio2 *1000,2) +  0.0008405*pe*fio2 *1000 + 0.009252*pow(pe,2);
 
 
 

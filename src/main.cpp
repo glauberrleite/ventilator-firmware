@@ -147,6 +147,10 @@ volatile float pe = 0;
 float pe_aux = 0;
 bool active_valve_sec = false;
 
+
+float p_plateau =0;
+float autopeep =0;
+
 // Custom functions
 
 // Timer callback
@@ -313,6 +317,16 @@ void prints_hmi(void * arg) {
             msg.concat(",");
             msg.concat("fio2:");
             msg.concat(sensors.getFi02(pe));
+            if (current_state == INHALE_PCV ||  current_state == INHALE_PCV ){
+                msg.concat(",");
+                msg.concat("autopeep:");
+                msg.concat(autopeep);
+
+            } else if (current_state == EXHALE){
+                msg.concat(",");
+                msg.concat("plateau:");
+                msg.concat(p_plateau);               
+            }
         } else if (mode == VCV) {
             msg.concat("paw:");
             msg.concat(sensors.getPRES_PAC_cm3H2O());
@@ -334,6 +348,16 @@ void prints_hmi(void * arg) {
             msg.concat(",");
             msg.concat("fio2:");
             msg.concat(sensors.getFi02(pe));
+            if (current_state == INHALE_PCV ||  current_state == INHALE_PCV ){
+                msg.concat(",");
+                msg.concat("autopeep:");
+                msg.concat(autopeep);
+
+            } else if (current_state == EXHALE){
+                msg.concat(",");
+                msg.concat("plateau:");
+                msg.concat(p_plateau);               
+            }
         }
 
         msg.concat("%");
@@ -417,6 +441,15 @@ void prints(void * arg) {
         Serial.print(",");
 
         Serial.print(SEC_VALVE);
+        Serial.print(",");
+        if (current_state == INHALE_PCV ||  current_state == INHALE_PCV ){
+            
+            Serial.print(autopeep);
+
+        } else if (current_state == EXHALE){
+            
+            Serial.print(p_plateau);               
+        }
 
         Serial.println();
         //long end = millis() - start;
@@ -779,6 +812,7 @@ void loop() {
         case PLATEAU:
             VALVE_INS = 0;
             VALVE_EXP = 0;
+            p_plateau =sensors.getPRES_PAC_cm3H2O();
             break;
         case INHALE_TO_EXHALE:
             active_valve_sec = false;
@@ -894,6 +928,7 @@ void loop() {
         case EXP_PAUSE:
             VALVE_EXP = 0;
             VALVE_INS = 0;
+            autopeep = sensors.getPRES_PAC_cm3H2O();
 
             break;
         case EXHALE_TO_INHALE:

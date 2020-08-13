@@ -245,12 +245,27 @@ float Sensors::getFlowSFM3300()
 
 float Sensors::getFi02(float pe){
 
-  //fitobject = fit([o2meas.voltage,o2meas.pres],o2meas.fio2,'poly22')
+  float result = 21.08;
+  
+  //10-40
   //return 5.041 +  2.114*fio2 *1000 - 1.197*pe - 0.008447*pow(fio2 *1000,2) + 0.001279*pe*fio2 *1000 + 0.01813*pow(pe,2);
-  return 0.9532 +  1.942*fio2 *1000 - 0.658*pe - 0.006343*pow(fio2 *1000,2) +  0.0008405*pe*fio2 *1000 + 0.009252*pow(pe,2);
+  //15-40
+  //return 0.9532 +  1.942*fio2 *1000 - 0.658*pe - 0.006343*pow(fio2 *1000,2) +  0.0008405*pe*fio2 *1000 + 0.009252*pow(pe,2);
+  if (pe >= 20){
 
+  
+    //20-40
+    result = -6.682 +  1.883*fio2 *1000 - 0.08323*pe - 0.005374*pow(fio2 *1000,2) +   0.00007312*pe*fio2 *1000 + 0.000668*pow(pe,2);    
+  } else {
 
+    if (fio2*1000 > 16.5) // We noted that readings lower than 16.5 are extremely non-linear, so we assume fio2 approx 21.08
+      //10-20
+      result = 24.09 +  2.5 *fio2 *1000 - 4.304*pe - 0.014*pow(fio2 *1000,2) +   0.014*pe*fio2 *1000 + 0.112*pow(pe,2);
 
+  }
+
+  result = result > 100 ? 100 : result;
+  return result;
 }
 
 void Sensors::onSFM(bool on){
